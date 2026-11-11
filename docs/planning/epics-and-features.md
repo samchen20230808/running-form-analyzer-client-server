@@ -50,7 +50,7 @@
 
 | Feature | 名稱                         | 狀態    | 說明                                                                                   |
 | ------- | ---------------------------- | ------- | -------------------------------------------------------------------------------------- |
-| 3.1     | 盤點 Client 對本地解算的依賴 | in-progress | 調查，不改程式；結論見 [`docs/client-server-boundary.md`](../client-server-boundary.md)：播放／繪圖函式拆至 `lib/player/`、內建 profile 烘焙關鍵幀（`lib/profiles/`）、移除本地運動學退回路徑、衍生值由 Server 回傳（契約 1.1.0）、重算端點 `POST /api/derive`（暫名）；D8／D9 已決定保留即時 HUD／同步骨架／模擬擷取（角度擷取與閘門進瀏覽器，`lib/landmarks/`）；D6 端點 `POST /api/derive` 已接受；現階段以 Client 表現優先，是否收緊 server-only 待使用一陣後再評估 |
+| 3.1     | 盤點 Client 對本地解算的依賴 | done | 調查，不改程式；結論見 [`docs/client-server-boundary.md`](../client-server-boundary.md)：播放／繪圖函式拆至 `lib/player/`、內建 profile 烘焙關鍵幀（`lib/profiles/`）、移除本地運動學退回路徑、衍生值由 Server 回傳（契約 1.1.0）、重算端點 `POST /api/derive`（暫名）；D8／D9 已決定保留即時 HUD／同步骨架／模擬擷取（角度擷取與閘門進瀏覽器，`lib/landmarks/`）；D6 端點 `POST /api/derive` 已接受；現階段以 Client 表現優先，是否收緊 server-only 待使用一陣後再評估 |
 | 3.2     | 搬入現有 Client UI           | planned | `index.html` 與渲染／UI 程式原樣搬入 Next.js，行為不變；舊核心暫時隨 Client 進瀏覽器（集中單一目錄、標「暫時」，完成後不部署，D0） |
 | 3.3     | Client 呼叫 `/api/analyze`   | planned | 擷取 landmarks 上傳、渲染結果；移除本地解算；依 [決策文件](../client-server-boundary.md) 落實 D1–D9（`lib/player/`、`lib/profiles/`、契約 1.1.0、重算端點，必要時拆成獨立 Feature） |
 | 3.4     | 報告匯出                     | planned | 舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心                 |

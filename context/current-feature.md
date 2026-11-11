@@ -1,30 +1,16 @@
-# Current Feature: 3.1 盤點 Client 對本地解算的依賴
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- 新增 `docs/client-server-boundary.md`（10 章：結論摘要、盤點基準、依賴盤點 (1)–(6)、函式歸屬總表、決策 D0–D11、契約與 API 影響、隱私影響、給 3.2／3.3／3.4 的輸入、既有缺陷、未決事項）。
-- 依賴盤點涵蓋規格 (1)–(6) 的每個呼叫點，`檔案:行號` 與舊專案 commit `e29766d` 一致。
-- 函式歸屬總表涵蓋 `lib/core/` 所有 export 與 `evaluateProfileCycle`、`getActiveRunnerTiming`、`RUNNER_PROFILES`。
-- D0–D11 每項有決定與理由（先採建議預設，使用者推翻時照實記錄）。
-- 路線圖 `docs/planning/epics-and-features.md` 依規格設計決策 6 更新（complete 時套用狀態 `done`）。
-- 契約文件視需要加「待 3.3 變更」註記（不改契約內容、不升版）。
-- 行為零變更：不改 `lib/`、`app/`、`tests/`、`package.json`、`next.config.mjs`；baseline 不變（walk 103／361ms／96；landmarks 193／176／150）。
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-- 規格：`context/features/3-1-client-local-solve-inventory.md`（Opus 撰寫）。
-- 調查型 Feature，無 UI／API 變更，略過 AGENTS.md 驗證第 3、4 項。
-- 不新增一致性測試；行號以一次性腳本（scratchpad，不提交）核對。
-- 舊專案唯讀，基準 commit `e29766d`。
-- Baseline（動工前）：build 成功、lint 無問題、`REQUIRE_BASELINE=1 npm test` 158 通過。
-- 產出：`docs/client-server-boundary.md`（10 章）、路線圖更新（3.1 `in-progress`，complete 時改 `done`）。契約文件未加註記（決策文件已記錄 D2 對 1.4／2.5 的影響，留給 3.3 一併改）。
-- 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 158 通過，基準不變（103／361ms／96；193／176／150）；一次性腳本核對 93 個 `檔案:行號`，6 項啟發式未命中經人工確認皆正確（識別字來自同列其他格）；盤點完整性腳本（19 個名稱在舊 `js/`＋`index.html` 的每個命中）0 遺漏；舊專案 `git log -1` 為 `e29766d` 且工作區乾淨；`git diff` 只動 `context/`、`docs/`，`lib/ app/ tests/ package.json next.config.mjs` 無變更。無 UI／API 變更，略過 AGENTS.md 驗證第 3、4 項。
-- 使用者決定（2026-11-11）：即時角度 HUD、即時同步骨架、無影片模擬擷取**全部保留**。D8 改為 (b)：`extractAnglesFromLandmarks`／`evaluateCaptureFrame` 抽成共用非 server-only 模組（暫名 `lib/landmarks/`），Server 仍重跑驗證；D9 改為模擬擷取送預先烘焙的合成 landmarks。決策文件與路線圖已同步。
-- 使用者決定：接受 `POST /api/derive`；現階段以 Client 表現與分析品質為優先，是否收緊 server-only 待使用一陣後再評估。已無待確認事項，可 `/feature complete`（D0–D5、D7、D10 仍為建議預設，可於 3.2／3.3 規格階段再調整）。
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -74,3 +60,9 @@ In Progress
 新增 `docs/privacy.md`（11 章，承諾標出對應程式位置）與 `README.md`；`docs/server-api.md`「隱私」改為摘要＋連結。修正文件與程式不符：IP 過期紀錄不會主動刪除，最長留到 instance 結束，改為如實記載。程式只改 2 檔共 3 行註解，行為零變更。新增 `tests/privacy-docs.test.js`（9 項）：唯一 log、不讀 env／不寫檔／不連線／無 cookie、回應不含原始 landmarks、文件限流數值與安全標頭同程式、README 版本同 `APP_CONFIG.version`。決策：新建 README；`privacy.md` 為隱私正本、`server-api.md` 為限流正本；IP 保存方式不改。
 
 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 158 通過（不帶變數 157＋1 skip）；baseline 不變（103／361ms／96；193／176／150）；4 項 mutation 皆使測試失敗；dev 實測終端機無 IP／body。Playwright 以 curl 取代（無 UI 變更）。Opus review 通過，已處理多項建議。已知：測試掃描範圍僅 `app/`、`lib/` 的 `.js`；Vercel 平台 log 待 4.1 查證；3.2／3.3 須重新核對 `privacy.md`。Spec: `context/features/2-2-privacy-and-docs.md`。
+
+### 2026-11-11 — Feature 3.1: 盤點 Client 對本地解算的依賴
+
+調查型 Feature，不改程式。新增 `docs/client-server-boundary.md`（10 章）：以舊專案 commit `e29766d` 盤點 Client 在分析流程之外對核心的依賴（改步幅／身高／步頻／機位重算、JSON 匯入、關鍵幀退回、renderer 與播放、`RUNNER_PROFILES`、擷取期間即時解算），附函式歸屬總表與 D0–D11 決策。決策：播放／繪圖函式拆至 `lib/player/`（單一來源）；內建 profile 改用烘焙關鍵幀（`lib/profiles/`）；移除本地運動學退回路徑；衍生值由 Server 回傳（契約擬升 1.1.0）；接受新增 `POST /api/derive`（暫名）；使用者決定**保留**即時角度 HUD、即時同步骨架、無影片模擬擷取，因此 `extractAnglesFromLandmarks`／`evaluateCaptureFrame` 抽共用模組進瀏覽器（`lib/landmarks/`），模擬擷取改送烘焙合成 landmarks。原則：現階段以 Client 表現與分析品質為優先，是否收緊 server-only 待使用一陣後再評估。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 158 通過，基準不變（103／361ms／96；193／176／150）；腳本核對文件 `檔案:行號`、盤點完整性 0 遺漏；`lib/ app/ tests/ package.json next.config.mjs` 無變更。無 UI／API 變更，略過 Playwright。Opus review 通過，已處理路線圖措辭、D0／D7 選項欄、契約 2.1 註解等建議。已知：D0–D5、D7、D10 為建議預設，3.2／3.3 規格階段可調整；`AGENTS.md`、`privacy.md`、README 的「核心只在 server」措辭須在 3.2／3.3 改為如實描述；既有缺陷（`pullPct` 漂移、`renderSimVideo` 繞過關鍵幀、`customCycleFrames` 死碼）預計隨 3.3 消除。Spec: `context/features/3-1-client-local-solve-inventory.md`。
