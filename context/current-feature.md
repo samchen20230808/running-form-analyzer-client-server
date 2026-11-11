@@ -1,31 +1,16 @@
-# Current Feature: 2.2 隱私說明與文件
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- 新增 `docs/privacy.md`（11 章節，承諾對應程式位置，與實際行為一致）
-- 新增 `README.md`（版本與 `APP_CONFIG.version` 一致、文件索引、隱私／存取控制摘要）
-- 更新 `docs/server-api.md`「隱私」為摘要＋連結，並修正 IP 保留描述（不再「即丟棄」）
-- 程式只改註解（`access-control.js`、`http-handler.js`），行為零變更
-- 新增 `tests/privacy-docs.test.js` 一致性測試
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-Spec: `context/features/2-2-privacy-and-docs.md`；branch `feature-privacy-and-docs`。
-
-**Baseline（動手前）**：`REQUIRE_BASELINE=1 npm test` 149 通過；`npm run build` 成功。
-
-**驗證結果**：
-- `npm run lint` 無問題；`npm run build` 成功（`/api/analyze` 為 `ƒ`）。
-- `REQUIRE_BASELINE=1 npm test` 158 通過；不帶變數 157 通過＋1 skip（baseline 不變：walk 103／361ms／96、三份 landmarks 193／176／150）。
-- 一致性測試有效性（mutation，已還原）：「30 次」→「20 次」、加回「即丟棄」、`access-control.js` 加 `console.log`、README 版本改 `V0.0`，各自使測試失敗。
-- `git diff -- lib app next.config.mjs package.json`：只有 2 檔共 3 行註解變更。
-- dev server 實測（埠 3001，3000 被其他程序占用）：200／400／403／首頁 200；終端機只印 `POST /api/analyze <狀態> in <ms>`，無 IP（含帶 `X-Forwarded-For: 203.0.113.9` 的請求）、body 或 landmarks 數值，與 `privacy.md` 第 5 章一致。首頁 HTML 的 script／link 皆為同源，無第三方網域。已關閉 dev server。
-- Opus review：可 complete。已處理：privacy.md 補 IP 取得方式、修正「不持有參照」引用位置、補預設值說明；README 加「目標架構」；測試改用正則並擴大禁用清單、連結改比對 Markdown 語法、移除過度的 `*` 行過濾。修正後 lint 通過、`REQUIRE_BASELINE=1` 158 通過。留作日後：掃描範圍擴及根目錄檔案與 `.mjs`／`.jsx`。
-- Playwright：本 Feature 無 UI／互動變更，改以 curl 檢查首頁資源（同 2.1 做法）。
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -69,3 +54,9 @@ Spec: `context/features/2-2-privacy-and-docs.md`；branch `feature-privacy-and-d
 `lib/server/access-control.js` 由放行 stub 換成方案 A：Origin／`Sec-Fetch-Site` 檢查（`same-origin`／`none` 放行；其他值 403；無 `Sec-Fetch-Site` 時比對 `Origin` host 與 `Host`；兩者皆無放行）＋每 IP 固定視窗限流（60 秒 30 次，超過 429＋`Retry-After`）。先檢查 Origin 再計數，被拒的跨站請求不耗額度。IP 取 XFF 第一段 → `x-real-ip` → 共用桶 `unknown`；最多追蹤 10,000 筆，滿時先清過期、再擠最早開窗者（重開窗先 delete 再 set）。常數 `ACCESS_LIMITS` 不放 `APP_CONFIG`、不讀 env。`RESPONSE_HEADERS` 與 `next.config.mjs headers()` 補齊 5 個安全標頭（測試比對一致），無 CORS。`route.js` 不改；`http-handler.js` 只改 `RESPONSE_HEADERS`。`docs/server-api.md` 如實記載限流僅盡力而為。
 
 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 149 通過（不帶變數 148＋1 skip）；walk 103／361ms／96、三份 landmarks 193／176／150 不變；curl 實測 200／403／429／405／204 與標頭符合。Playwright 因瀏覽器被占用，經使用者同意以 curl 驗證首頁與資源；真實瀏覽器同源 `fetch` 非 403 的驗證留待 Epic 3。Opus review 通過，已補強清理測試（mutation 驗證）、403 標頭與 `Retry-After` 斷言。已知：多 instance／冷啟動使限流僅盡力而為；XFF 可信度依賴 Vercel 為最外層，4.1 部署後實測；`Host` 帶預設 port 時舊 Safari 可能誤拒；IPv6 未以 /64 限流。Spec: `context/features/2-1-same-origin-access-control.md`。
+
+### 2026-11-11 — Feature 2.2: 隱私說明與文件
+
+新增 `docs/privacy.md`（11 章，承諾標出對應程式位置）與 `README.md`；`docs/server-api.md`「隱私」改為摘要＋連結。修正文件與程式不符：IP 過期紀錄不會主動刪除，最長留到 instance 結束，改為如實記載。程式只改 2 檔共 3 行註解，行為零變更。新增 `tests/privacy-docs.test.js`（9 項）：唯一 log、不讀 env／不寫檔／不連線／無 cookie、回應不含原始 landmarks、文件限流數值與安全標頭同程式、README 版本同 `APP_CONFIG.version`。決策：新建 README；`privacy.md` 為隱私正本、`server-api.md` 為限流正本；IP 保存方式不改。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 158 通過（不帶變數 157＋1 skip）；baseline 不變（103／361ms／96；193／176／150）；4 項 mutation 皆使測試失敗；dev 實測終端機無 IP／body。Playwright 以 curl 取代（無 UI 變更）。Opus review 通過，已處理多項建議。已知：測試掃描範圍僅 `app/`、`lib/` 的 `.js`；Vercel 平台 log 待 4.1 查證；3.2／3.3 須重新核對 `privacy.md`。Spec: `context/features/2-2-privacy-and-docs.md`。
