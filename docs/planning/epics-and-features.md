@@ -52,7 +52,7 @@
 | ------- | ---------------------------- | ------- | -------------------------------------------------------------------------------------- |
 | 3.1     | 盤點 Client 對本地解算的依賴 | done | 調查，不改程式；結論見 [`docs/client-server-boundary.md`](../client-server-boundary.md)：播放／繪圖函式拆至 `lib/player/`、內建 profile 烘焙關鍵幀（`lib/profiles/`）、移除本地運動學退回路徑、衍生值由 Server 回傳（契約 1.1.0）、重算端點 `POST /api/derive`（暫名）；D8／D9 已決定保留即時 HUD／同步骨架／模擬擷取（角度擷取與閘門進瀏覽器，`lib/landmarks/`）；D6 端點 `POST /api/derive` 已接受；現階段以 Client 表現優先，是否收緊 server-only 待使用一陣後再評估 |
 | 3.2     | 搬入現有 Client UI           | done | 舊 Client 原樣放入 `public/legacy/`，`/` 以 307 導向 `/legacy/index.html`；舊核心暫存 `public/legacy/temp-core/`（`TEMP-CORE` 檔頭），`VERCEL` 環境 build 會失敗，3.3 移除前不得部署；規格見 [`3-2`](../../context/features/3-2-client-ui-migration.md) |
-| 3.3     | Client 呼叫 `/api/analyze`   | in progress | 影片擷取完成時上傳 landmarks、套用 Server 結果；錯誤提示、過時回應丟棄；刪除 `customCycleFrames`；`lib/` 不動、temp-core 與部署防線保留；規格見 [`3-3`](../../context/features/3-3-client-calls-analyze.md) |
+| 3.3     | Client 呼叫 `/api/analyze`   | done | 影片擷取完成時上傳 landmarks、套用 Server 結果；錯誤提示、過時回應丟棄；刪除 `customCycleFrames`；`lib/` 不動、temp-core 與部署防線保留；規格見 [`3-3`](../../context/features/3-3-client-calls-analyze.md) |
 | 3.4     | 瀏覽器共用模組與橋接         | planned | `lib/player/`、`lib/landmarks/`（D1、D8）；決定 public 頁面橋接機制（建議複製到 `public/legacy/modules/`＋逐位元組測試） |
 | 3.5     | 內建 profile 烘焙與模擬擷取  | planned | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 須先做原型確認可行 |
 | 3.6     | 衍生值 API                   | planned | 契約 1.1.0（`metrics.gct` 完整物件）＋ `POST /api/derive`；只動 Server（D5、D6） |

@@ -1,40 +1,16 @@
-# Current Feature: 3.3 Client 呼叫 /api/analyze
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- 影片擷取完成時，把擷取期間每一幀的 sanitized landmarks 以同源 `POST /api/analyze` 上傳，用 Server 回傳的 `cadence`／`summary`／`cycleKeyframes` 建立 `custom_captured`；不再呼叫本地 `analyzeCapturedFrames`（影片路徑）。
-- 請求本體只含 7 個欄位（`frameWidth`、`frameHeight`、`heightCm`、`cameraMode`、`runDirection`、`isManualDirection`、`frames`），不送 `profileName`、不送 `z`。
-- 錯誤處理：400／413／422／429／其他狀態、網路錯誤、逾時都提示使用者，狀態不變、console 無 error。
-- 過時回應丟棄、進行中不可重複觸發；刪除 `customCycleFrames` 死碼。
-- `lib/`、`public/legacy/temp-core/` 不動；基準不變（walk 103／361ms／96；landmarks 193／176／150）。
-- 文件如實更新（privacy、server-api、README、AGENTS、決策文件、路線圖）。
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-規格：`context/features/3-3-client-calls-analyze.md`（Opus 撰寫）。
-
-**切分決定（使用者已確認）**：原 3.3 範圍過大（UI 每幀都依賴 temp-core 算衍生值，須先有契約 1.1.0＋derive，移除 temp-core 只能放最後），拆成 3.3 影片擷取呼叫 analyze／3.4 `lib/player`＋`lib/landmarks` 橋接／3.5 `lib/profiles` 烘焙與模擬擷取／3.6 契約 1.1.0＋`/api/derive`／3.7 UI 改讀衍生值並移除 temp-core／3.8 報告匯出（原 3.4）。路線圖與 4.1 前置（改為 3.7 完成）已更新；過渡期文字改為「3.2–3.7」。待決定採建議預設：擷取結果掛 `cycleKeyframes`、錯誤用 `alert`、上限 1500 幀／逾時 30 秒。
-
-**Baseline（開工前）**：`npm run build` 成功；`REQUIRE_BASELINE=1 npm test` 168 通過；walk 103／361ms／96；landmarks 193／176／150。
-
-**實作**：`js/state.js` 新增上傳狀態與常數（`MAX_UPLOAD_FRAMES=1500`、`UPLOAD_TIMEOUT_MS=30000`）；`js/analyzer.js` 在閘門前記錄每幀 landmarks（`t` 與 `videoTime` 同一次讀取）、拆出 `requestServerAnalysis`／`applyCapturedResult`、`finalizeCycleExtraction` 影片路徑改上傳（模擬擷取仍本地）；`js/ui.js` `loadVideoFile` 遞增 `captureSeq` 作廢進行中請求；`js/config.js` 刪 `customCycleFrames`；`next.config.mjs` 只改註解（3.3→3.7）；`tests/legacy-client.test.js`「不呼叫 API」改為「`fetch` 僅一處 `/api/analyze`」、請求不含 `profileName`、上限不超過 `LIMITS`、`customCycleFrames` 已刪。
-
-**驗證**：
-- lint 無錯；build 通過；`REQUIRE_BASELINE=1 npm test` 172 通過（168＋4 新增）；`git diff -- lib app public/legacy/temp-core` 無變更；`VERCEL=1 npm run build` 仍失敗（防線在）。
-- curl：`/` 307、`/legacy/js/analyzer.js` 200、跨站 POST 403、同源空 body 400，安全標頭在。
-- Playwright：載入 console 0 error；用 `woman03 - Trim.mp4` 擷取 → 恰好 1 個 `POST /api/analyze`→200，鍵集合 7 個、112 幀、每幀 `{t, lm[33×3]}`、無 `profileName`／`z`；UI 步頻 199／步幅 0.93／101 幀關鍵幀；同一批幀的本地 `analyzeCapturedFrames` 與 Server `summary`、`cadence` 完全相同。
-- 錯誤注入（422／429／400／413／500／abort）提示正確、profile 與步頻不變、按鈕恢復；進行中重複觸發被擋、僅 1 次請求；過時回應被丟棄且無提示。瀏覽器 console 對注入的非 2xx 會記 `Failed to load resource`（預期，非程式錯誤）。
-- 回歸：無影片模擬擷取（本地，步頻 158）、切 Profile、匯入 walk JSON 顯示 103／361ms／96 皆正常。
-
-**Opus review 後修正**：擷取中途換影片改為作廢擷取並清空舊幀；200 但 body 不是合法 `summary`／`cadence` 改走錯誤提示（`AbortError` 重新丟出成逾時）；`finalizeCycleExtraction` 防護改為 `if (!isCapturingCycle) return`；privacy 補「每次擷取完成」「最多約 3.5 MB」「`profileName` 舊 Client 不送」；路線圖待處理的「3.3」改 3.4–3.7。偏離規格：上傳量測試係數由 2800 改 2400（1500×2800=4.2 MB 已超過 4 MB 上限，規格本身不成立；每幀最壞約 2.25 KB）。
-
-**既有缺陷（本 Feature 不處理）**：`ended` 時僅 8–14 個接受幀不會 finalize（按鈕停在擷取中）；收滿 1500 幀但接受幀 < 8 時只顯示 ✅ 無結果；模擬擷取 `setTimeout(finalize, 450)` 無 seq 防護；`showCaptureDone` 的 2.5 秒計時器可能覆蓋下一次擷取的按鈕文字。身高超出 50–250 或座標超出範圍時本地可算、Server 回 400（提示已說明）。
-
-**已知／未驗**：逾時 30 秒路徑未實際等待驗證；真實的 `loadVideoFile` 在請求進行中換影片未用真影片重現（以 `captureSeq++` 模擬）；拖入影片、骨架播放／相位跳轉／圖層切換未逐項重測（本 Feature 未動這些程式）；擷取中途手動改方向或身高時，Server 以起點值重跑，結果可能與即時 HUD 不同；temp-core 檔頭「3.3 移除」現指 3.7（檔案不得改）。3.4 橋接機制、3.5 合成 landmarks 可行性為後續未決事項。
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -96,3 +72,9 @@ In Progress
 舊 Client（`index.html`、`styles/main.css`、`js/*.js`）原樣搬入 `public/legacy/`，`next.config.mjs` `redirects()` 讓 `/` 307 導向 `/legacy/index.html`，刪除佔位的 `app/page.js`。舊核心四檔集中於 `public/legacy/temp-core/`（檔頭 3 行 `TEMP-CORE`，行號為舊行號 +3），不被 `lib/`、`app/` 引用。部署防線：`VERCEL` 環境且 temp-core 存在時 build 失敗（3.3 移除時一併拿掉）。ESLint 忽略 `public/legacy/**`。`index.html` 僅 6 行同行替換（核心路徑改 `temp-core/`、不搬 `report.js`、報告按鈕 disabled，留 3.4）。新增 `tests/legacy-client.test.js`；同步更新 `privacy.md`、README、AGENTS、邊界文件。決策（規格預設）：靜態 `public/legacy/`；`report.js` 不搬；加部署防線；第三方資源維持 CDN 不釘版。
 
 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 168 通過；基準不變（103／361ms／96；193／176／150）；`lib/` 無變更；位元組比對僅規格列出的差異；`VERCEL=1 npm run build` 失敗符合預期；Playwright 載入 console 0 error、資源皆 2xx／3xx，匯入 walk 樣本顯示 103／361ms／96，切 Profile、播放、選影片與智慧擷取、拖入影片、匯出 JSON 可用。Opus review 可 complete，已處理多項建議。已知：暫時核心會被公開提供，3.3 前不可部署；部署防線依賴 Vercel 有 `VERCEL`，4.1 前實測；MediaPipe 版本與大小未記錄、相位跳轉與圖層切換、預覽開關、截圖並排比對未逐項驗；報告按鈕無 disabled 視覺樣式；行走 HUD 左右腳標示錯誤未修；`APP_CONFIG` 過渡期兩份。Spec: `context/features/3-2-client-ui-migration.md`。
+
+### 2026-11-11 — Feature 3.3: Client 呼叫 `/api/analyze`
+
+原 3.3 範圍過大（UI 每幀都依賴 temp-core 算衍生值，須先有契約 1.1.0＋derive，移除 temp-core 只能放最後），經使用者確認拆成 3.3–3.7，報告匯出改為 3.8，4.1 前置改為「3.7 完成」，過渡期改為 3.2–3.7。本 Feature 只做影片擷取改呼叫 API：`public/legacy/js/analyzer.js` 在閘門前記錄每幀 sanitized landmarks（`t` 與 `videoTime` 同一次讀取），完成時同源 `POST /api/analyze`（7 個欄位，不送 `profileName`／`z`，上限 1500 幀、逾時 30 秒），以 Server 的 `cadence`／`summary`／`cycleKeyframes` 建立 `custom_captured`；錯誤用 `alert` 提示，`captureSeq` 丟棄過時回應，換影片作廢進行中的擷取；刪除 `customCycleFrames`。`lib/`、temp-core 不動，部署防線保留（仍不可部署）。`tests/legacy-client.test.js` 改為 `fetch` 僅一處、請求不含 `profileName`、上限不超過 `LIMITS`。同步 privacy／server-api／README／AGENTS／決策文件／路線圖。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 172 通過；基準不變（103／361ms／96；193／176／150）；`VERCEL=1` build 仍失敗。Playwright：`woman03 - Trim.mp4` 擷取恰好 1 個 POST→200，Server 與同批幀本地分析的 `summary`／`cadence` 完全相同；注入 422／429／400／413／500／abort／200 壞 body 提示正確且狀態不變；重複觸發被擋、過時回應丟棄、擷取中換影片清空舊幀；模擬擷取、切 Profile、匯入 walk JSON 正常。Opus review 後修正換影片混幀、壞 body 例外、finalize 防護與文件措辭。已知：30 秒逾時路徑未實際等待；拖入影片、骨架播放、圖層切換未逐項重測；`ended` 僅 8–14 接受幀不結算、滿 1500 幀但接受幀 < 8 無結果、模擬擷取 450ms 計時器無防護、✅ 計時器可能覆蓋文字；上傳量測試係數 2400（規格 2800 本身超過 4 MB）。後續未決：3.4 橋接機制（建議複製到 `public/legacy/modules/`）、3.5 合成 landmarks 可行性。Spec: `context/features/3-3-client-calls-analyze.md`。
