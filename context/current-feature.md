@@ -1,27 +1,16 @@
-# Current Feature: 2.1 同源存取模型
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- `lib/server/access-control.js` 實作 Origin／`Sec-Fetch-Site` 檢查（跨源 403 `forbidden`；同源與無標頭放行）
-- 每 IP 記憶體式固定視窗限流：60 秒 30 次，超過 429 `rate_limited`＋`Retry-After`；上限 10,000 筆並清理
-- 其餘安全標頭加入 `RESPONSE_HEADERS` 與 `next.config.mjs headers()`，兩處以測試保證一致；無 CORS
-- `route.js` 不改；`http-handler.js` 只改 `RESPONSE_HEADERS` 與註解；`checkAccess` 介面不變
-- 測試：`access-control.test.js`、擴充 `api-analyze-route.test.js`／`core-modules.test.js`；baseline 不變
-- `docs/server-api.md` 更新，如實記載限流僅盡力而為
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-Spec: `context/features/2-1-same-origin-access-control.md`。分支 `feature-same-origin-access-control`。
-
-Baseline（動工前）：`npm run build` 成功（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 105 通過（walk 103／361ms／96、三份 landmarks 193／176／150）。
-
-驗證（實作後）：`npm run lint` 無問題、`npm run build` 成功（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 149 通過（不帶變數 148＋1 skip）；walk 103／361ms／96、`kf-*` 逐字相同、三份 landmarks 193／176／150 不變。`git diff`：`route.js` 無變更，`http-handler.js` 只改 `RESPONSE_HEADERS`。
-curl（dev，埠 3001）：無標頭／`Origin` 同 host／`Sec-Fetch-Site: same-origin` 皆 200（cadence 來自 landmarks-woman03）；`Origin: https://evil.example`／`Sec-Fetch-Site: cross-site`／`Origin: null` 皆 403 且帶 5 個安全標頭；同一 XFF 第 31 次 429（`Retry-After` 59），換 XFF 為 400；GET 405、OPTIONS 204 皆帶 5 個安全標頭、無 `Access-Control-*`、無 `X-Powered-By`；dev log 無 `analyze failed`、無 IP。首頁與 icon 200，dev log 無錯誤。`.next/static` 無 `rate_limited`／`ACCESS_LIMITS`。
-Playwright：瀏覽器被其他實例占用（`Browser is already in use`），經使用者同意以 curl 驗證首頁與資源（皆 200）；未驗證真實瀏覽器同源 `fetch` 為 400 而非 403，也未檢查 console，待 Epic 3 Client 呼叫 API 時於瀏覽器補驗。Opus review：實作無誤、無繞過；已補強清理測試（mutation 驗證可抓錯）、403 標頭比對、`Retry-After` 斷言；預設 port 誤拒記入規格已知風險。
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -59,3 +48,9 @@ Playwright：瀏覽器被其他實例占用（`Browser is already in use`），�
 新增 `app/api/analyze/route.js`（只 export `runtime`、`POST`）→ `lib/server/http-handler.js`（`handleAnalyzeHttp`，框架無關）。處理順序：存取控制 → Content-Type 415 → 串流讀 body 強制 `LIMITS.maxBodyBytes` 413（`Content-Length` 只預檢，超過即 `cancel`）→ JSON 400 → `analyzeRequest`（400／413／422），非預期例外 500 `internal_error`，只 log `analyze failed`。所有回應 `Cache-Control: no-store`（`next.config.mjs` `headers()` 讓 Next 自動 405／OPTIONS 也帶），無 CORS。存取控制單一接入點 `lib/server/access-control.js`（放行 stub，status 非 400–599 視為實作錯誤回 500），Epic 2 只換此模組。新增 `docs/server-api.md`。決策：Content-Type 嚴格比對 media type（與舊 Server 唯一刻意差異）；其餘安全標頭留 2.1；405 交給 Next。
 
 驗證：lint、build 通過（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 105 通過（不帶變數 103＋1 skip）；walk 103／361ms／96、`kf-*` 逐字相同、三份 landmarks 經 `POST` 193／176／150 且與 `analyzeRequest` `toStrictEqual`；舊新 handler 13 案例對照一致；curl 200／400／415／422／413（兩條路徑）／405／OPTIONS 符合，`.next/static` 無核心字串。Playwright 因瀏覽器被占用，經使用者同意以 curl 驗證首頁與資源皆 200。Opus review 通過，已處理 status 防呆與測試強化。已知：Vercel 4.5 MB 平台上限待 4.1 實測；2.1 存取控制須留在 route 內，不要用 `proxy.js`；walk 樣本無 landmarks，無法經 route；`.gitignore` 加 `.vitest/`。Spec: `context/features/1-3-api-analyze-route.md`。
+
+### 2026-11-11 — Feature 2.1: 同源存取模型
+
+`lib/server/access-control.js` 由放行 stub 換成方案 A：Origin／`Sec-Fetch-Site` 檢查（`same-origin`／`none` 放行；其他值 403；無 `Sec-Fetch-Site` 時比對 `Origin` host 與 `Host`；兩者皆無放行）＋每 IP 固定視窗限流（60 秒 30 次，超過 429＋`Retry-After`）。先檢查 Origin 再計數，被拒的跨站請求不耗額度。IP 取 XFF 第一段 → `x-real-ip` → 共用桶 `unknown`；最多追蹤 10,000 筆，滿時先清過期、再擠最早開窗者（重開窗先 delete 再 set）。常數 `ACCESS_LIMITS` 不放 `APP_CONFIG`、不讀 env。`RESPONSE_HEADERS` 與 `next.config.mjs headers()` 補齊 5 個安全標頭（測試比對一致），無 CORS。`route.js` 不改；`http-handler.js` 只改 `RESPONSE_HEADERS`。`docs/server-api.md` 如實記載限流僅盡力而為。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 149 通過（不帶變數 148＋1 skip）；walk 103／361ms／96、三份 landmarks 193／176／150 不變；curl 實測 200／403／429／405／204 與標頭符合。Playwright 因瀏覽器被占用，經使用者同意以 curl 驗證首頁與資源；真實瀏覽器同源 `fetch` 非 403 的驗證留待 Epic 3。Opus review 通過，已補強清理測試（mutation 驗證）、403 標頭與 `Retry-After` 斷言。已知：多 instance／冷啟動使限流僅盡力而為；XFF 可信度依賴 Vercel 為最外層，4.1 部署後實測；`Host` 帶預設 port 時舊 Safari 可能誤拒；IPv6 未以 /64 限流。Spec: `context/features/2-1-same-origin-access-control.md`。

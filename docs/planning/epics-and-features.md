@@ -43,7 +43,7 @@
 
 | Feature | 名稱             | 狀態    | 說明                                                                    |
 | ------- | ---------------- | ------- | ----------------------------------------------------------------------- |
-| 2.1     | 同源存取模型     | planned | Origin／`Sec-Fetch-Site` 檢查、每 IP 限流、安全標頭、無 CORS；單一模組；實作於 `lib/server/access-control.js`，其餘安全標頭加入 `RESPONSE_HEADERS` 與 `next.config.mjs` `headers()`    |
+| 2.1     | 同源存取模型     | done | Origin／`Sec-Fetch-Site` 檢查、每 IP 限流、安全標頭、無 CORS；單一模組；實作於 `lib/server/access-control.js`，其餘安全標頭加入 `RESPONSE_HEADERS` 與 `next.config.mjs` `headers()`    |
 | 2.2     | 隱私說明與文件   | planned | 只上傳 landmarks、不儲存不記錄；限流限制如實記載                        |
 
 ## Epic 3 — Client 改為呼叫 Server
