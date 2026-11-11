@@ -1,16 +1,30 @@
-# Current Feature
+# Current Feature: 3.1 盤點 Client 對本地解算的依賴
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 新增 `docs/client-server-boundary.md`（10 章：結論摘要、盤點基準、依賴盤點 (1)–(6)、函式歸屬總表、決策 D0–D11、契約與 API 影響、隱私影響、給 3.2／3.3／3.4 的輸入、既有缺陷、未決事項）。
+- 依賴盤點涵蓋規格 (1)–(6) 的每個呼叫點，`檔案:行號` 與舊專案 commit `e29766d` 一致。
+- 函式歸屬總表涵蓋 `lib/core/` 所有 export 與 `evaluateProfileCycle`、`getActiveRunnerTiming`、`RUNNER_PROFILES`。
+- D0–D11 每項有決定與理由（先採建議預設，使用者推翻時照實記錄）。
+- 路線圖 `docs/planning/epics-and-features.md` 依規格設計決策 6 更新（complete 時套用狀態 `done`）。
+- 契約文件視需要加「待 3.3 變更」註記（不改契約內容、不升版）。
+- 行為零變更：不改 `lib/`、`app/`、`tests/`、`package.json`、`next.config.mjs`；baseline 不變（walk 103／361ms／96；landmarks 193／176／150）。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+- 規格：`context/features/3-1-client-local-solve-inventory.md`（Opus 撰寫）。
+- 調查型 Feature，無 UI／API 變更，略過 AGENTS.md 驗證第 3、4 項。
+- 不新增一致性測試；行號以一次性腳本（scratchpad，不提交）核對。
+- 舊專案唯讀，基準 commit `e29766d`。
+- Baseline（動工前）：build 成功、lint 無問題、`REQUIRE_BASELINE=1 npm test` 158 通過。
+- 產出：`docs/client-server-boundary.md`（10 章）、路線圖更新（3.1 `in-progress`，complete 時改 `done`）。契約文件未加註記（決策文件已記錄 D2 對 1.4／2.5 的影響，留給 3.3 一併改）。
+- 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 158 通過，基準不變（103／361ms／96；193／176／150）；一次性腳本核對 93 個 `檔案:行號`，6 項啟發式未命中經人工確認皆正確（識別字來自同列其他格）；盤點完整性腳本（19 個名稱在舊 `js/`＋`index.html` 的每個命中）0 遺漏；舊專案 `git log -1` 為 `e29766d` 且工作區乾淨；`git diff` 只動 `context/`、`docs/`，`lib/ app/ tests/ package.json next.config.mjs` 無變更。無 UI／API 變更，略過 AGENTS.md 驗證第 3、4 項。
+- 使用者決定（2026-11-11）：即時角度 HUD、即時同步骨架、無影片模擬擷取**全部保留**。D8 改為 (b)：`extractAnglesFromLandmarks`／`evaluateCaptureFrame` 抽成共用非 server-only 模組（暫名 `lib/landmarks/`），Server 仍重跑驗證；D9 改為模擬擷取送預先烘焙的合成 landmarks。決策文件與路線圖已同步。
+- 使用者決定：接受 `POST /api/derive`；現階段以 Client 表現與分析品質為優先，是否收緊 server-only 待使用一陣後再評估。已無待確認事項，可 `/feature complete`（D0–D5、D7、D10 仍為建議預設，可於 3.2／3.3 規格階段再調整）。
 
 ## History
 
