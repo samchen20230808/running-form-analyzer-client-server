@@ -1,16 +1,36 @@
-# Current Feature
+# Current Feature: 1.1 核心純計算模組搬成 ES module
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 把舊專案 vm 載入的核心搬成 `lib/core/*.js` ES module（biomechanics、keyframes、landmark-extract、cycle-analysis、keyframes-builder），函式本體逐字照搬，零行為變更。
+- 每個核心檔第一行 `import "server-only"`；`lib/core/index.js` 只匯出舊 load-core 的 9 個名稱。
+- Vitest 以 alias＋空 stub 處理 `server-only`，不新增依賴。
+- baseline 逐值一致：walk 步頻 103／觸地 361ms／總分 96、`kf-walk-101`／`kf-hsu-101` 關鍵幀字串相同、三份 landmarks 步頻 193／176／150 且與 client 樣本相同。
+- 驗證核心不進瀏覽器 bundle；同步路線圖與 `lib/config.js` 註解。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+規格：`context/features/1-1-core-esm-modules.md`（Opus 撰寫）。依 5 項待決定事項的建議執行，**尚待使用者確認**：
+1. `RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 不搬，改到 Epic 3。
+2. 55／8 與 isWalking／isBiomechanicalRunner 判斷式 1.1 不合併。
+3. `keyframes-builder` 由 1.2 提前到 1.1。
+4. 子模組匯出所有搬入函式。
+5. `server-only` 用 Vitest alias＋空 stub，不安裝套件。
+
+Baseline（動手前）：`npm run build` 成功；既有測試 7 通過、1 skip。
+
+驗證結果：
+- `npm run lint` 無錯誤；`npm run build` 成功。
+- `REQUIRE_BASELINE=1 npm test`：3 檔 25 通過；不帶變數 24 通過、1 skip（被 skip 的是 REQUIRE 那組；「缺樣本時整組 skip」依 `skipIf(!available)` 程式邏輯判定，未實際改名資料夾測試）。
+- 逐字審查：新檔去掉 import／export 前綴後與舊檔 diff，差異僅有 import 行、檔頭註解，以及不搬的 `evaluateProfileCycle`／`getActiveRunnerTiming`。
+- bundle：暫時讓 `"use client"` 元件 import 核心 → build 失敗且訊息指出 `server-only`；暫時讓 Server Component import → build 成功，核心字串只在 `.next/server`、`.next/static` 搜尋不到。兩項暫時修改已還原，`app/` 無變更。
+- 無 UI／API 變更，略過 Playwright。
+- Opus review：計算邏輯無改變，已修 5 項（檔頭註解殘留舊架構描述、`CYCLE_KEYFRAME_NUMERIC_FIELDS` 欄位順序斷言、`lib/config.js` 註解、本段措辭、路線圖補條目）。已知證明力限制：walk 的 361ms 只證明步頻 103 路徑（步頻 < 135 時只用步頻計算），summary 相關證據是總分 96；landmarks 的關鍵幀比對為同程式自比，真正證據是 kf-walk／kf-hsu 逐字比對。`@/` 別名尚未設定，目前只能用相對路徑；不經 Next 打包而直接用 node 執行 import `lib/core` 的腳本會因找不到 `server-only` 失敗。
+- 未做：專案尚無 `README.md`，未新增測試段落；`solveKinematics` 等無 baseline 覆蓋的函式只靠逐字 diff 保證，未補對照值。
 
 ## History
 

@@ -35,8 +35,8 @@
 
 | Feature | 名稱                         | 狀態    | 說明                                                                                  |
 | ------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------- |
-| 1.1     | 核心純計算模組搬成 ES module | planned | `biomechanics`、`keyframes`、`landmark-extract`、`cycle-analysis` 等；與 baseline 逐值一致 |
-| 1.2     | analyze 主流程與契約 v1.0.0  | planned | `analyzeRequest`、`validateAnalysisJSON`、`keyframes-builder`；回應符合契約            |
+| 1.1     | 核心純計算模組搬成 ES module | in-progress | `biomechanics`、`keyframes`、`landmark-extract`、`cycle-analysis`、`keyframes-builder`（由 1.2 提前）；與 baseline 逐值一致 |
+| 1.2     | analyze 主流程與契約 v1.0.0  | planned | `analyzeRequest`、`validateAnalysisJSON`；回應符合契約；改用正式 `analyzeRequest` 並刪除 `tests/helpers/landmarks-pipeline.js` |
 | 1.3     | Route Handler `/api/analyze` | planned | 請求驗證（範圍、大小上限）、錯誤格式、不回傳 stack                                    |
 
 ## Epic 2 — 存取控制（同源）
@@ -66,7 +66,9 @@
 ## 待處理（來自舊專案）
 
 - ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：搬入 Client（3.2）後另開 `fix-` 處理。
-- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：核心合併為單一份時（1.1／1.2）處理，須逐處確認空值行為。
-- ⏳ 1.1 開工前先確認：「觸地 361ms／總分 96」不在 walk summary 原始欄位，須由核心計算得出；要先決定基準值來源與比對方式。建議 1.1 起以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
+- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 隨 1.2 的 validate 進來，判斷式合併須逐處確認空值行為，另開 refactor 或併入 1.2，並以 baseline 驗證。
+- ✅ 「觸地 361ms／總分 96」基準來源已確認：由核心 `computeGctMetrics`／`calculateOverallRunningScore` 對 walk summary 計算得出，比對方式見 1.1 規格；建議以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
+- ⏳ 舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。3.1 須決定：拆出瀏覽器可用的播放／繪圖純函式模組，或全部改由 Server 回傳結果。
+- ⏳ `RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；3.1 盤點 Client 依賴時決定去向（是否保留本地運動學退回路徑、profile 靜態資料放哪裡）。
 - ⏳ 限流改外部儲存（Upstash Redis）：把服務開放給他人之前再評估。
 - ⏳ 骨架時序平滑（One Euro）原型：舊專案 branch `feature-skeleton-smoothing-proto`，擱置。
