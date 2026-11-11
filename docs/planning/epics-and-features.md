@@ -51,7 +51,7 @@
 | Feature | 名稱                         | 狀態    | 說明                                                                                   |
 | ------- | ---------------------------- | ------- | -------------------------------------------------------------------------------------- |
 | 3.1     | 盤點 Client 對本地解算的依賴 | done | 調查，不改程式；結論見 [`docs/client-server-boundary.md`](../client-server-boundary.md)：播放／繪圖函式拆至 `lib/player/`、內建 profile 烘焙關鍵幀（`lib/profiles/`）、移除本地運動學退回路徑、衍生值由 Server 回傳（契約 1.1.0）、重算端點 `POST /api/derive`（暫名）；D8／D9 已決定保留即時 HUD／同步骨架／模擬擷取（角度擷取與閘門進瀏覽器，`lib/landmarks/`）；D6 端點 `POST /api/derive` 已接受；現階段以 Client 表現優先，是否收緊 server-only 待使用一陣後再評估 |
-| 3.2     | 搬入現有 Client UI           | planned | `index.html` 與渲染／UI 程式原樣搬入 Next.js，行為不變；舊核心暫時隨 Client 進瀏覽器（集中單一目錄、標「暫時」，完成後不部署，D0） |
+| 3.2     | 搬入現有 Client UI           | done | 舊 Client 原樣放入 `public/legacy/`，`/` 以 307 導向 `/legacy/index.html`；舊核心暫存 `public/legacy/temp-core/`（`TEMP-CORE` 檔頭），`VERCEL` 環境 build 會失敗，3.3 移除前不得部署；規格見 [`3-2`](../../context/features/3-2-client-ui-migration.md) |
 | 3.3     | Client 呼叫 `/api/analyze`   | planned | 擷取 landmarks 上傳、渲染結果；移除本地解算；依 [決策文件](../client-server-boundary.md) 落實 D1–D9（`lib/player/`、`lib/profiles/`、契約 1.1.0、重算端點，必要時拆成獨立 Feature） |
 | 3.4     | 報告匯出                     | planned | 舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心                 |
 
@@ -59,14 +59,14 @@
 
 | Feature | 名稱             | 狀態    | 說明                                                                                           |
 | ------- | ---------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| 4.1     | Vercel 設定與驗證 | planned | Root Directory 為 repo 根目錄、Node 24.x、區域 `hnd1`；部署與環境變數由使用者操作；agent 準備文件與驗證腳本 |
+| 4.1     | Vercel 設定與驗證 | planned | **前置：3.3 完成（`public/legacy/temp-core/` 已移除）**，並實測 Vercel build 有 `VERCEL`、頁面安全標頭／第三方資源釘版或自託管另開 Feature；Root Directory 為 repo 根目錄、Node 24.x、區域 `hnd1`；部署與環境變數由使用者操作；agent 準備文件與驗證腳本 |
 
 ---
 
 ## 待處理（來自舊專案）
 
-- ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：搬入 Client（3.2）後另開 `fix-` 處理。
-- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 已於 1.2 成為 `LIMITS.maxAcceptedFrames`／`minAcceptedFrames`（Server 端單一來源；Client 的 `>= 55`／`< 8` 於 3.2 搬入後暫時重複，3.3 移除本地解算時消失）。判斷式合併 1.2 不處理，另開 `refactor-` Feature（建議 3.2 之後），開工前先補「步頻 < 135」與「avgElbow／hipRomDeg 為 null」的對照值（現有 landmarks 樣本步頻皆 ≥ 135，`isWalking` 的 true 分支只靠逐字 diff）。
+- ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：Client 已搬入（3.2），可另開 `fix-` 處理（建議 3.3 之後，位置見 3.2 規格第 10 節）。
+- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 已於 1.2 成為 `LIMITS.maxAcceptedFrames`／`minAcceptedFrames`（Server 端單一來源；Client 的 `>= 55`／`< 8` 已於 3.2 搬入後暫時重複，3.3 移除本地解算時消失）。判斷式合併 1.2 不處理，另開 `refactor-` Feature（建議 3.2 之後），開工前先補「步頻 < 135」與「avgElbow／hipRomDeg 為 null」的對照值（現有 landmarks 樣本步頻皆 ≥ 135，`isWalking` 的 true 分支只靠逐字 diff）。
 - ✅ 「觸地 361ms／總分 96」基準來源已確認：由核心 `computeGctMetrics`／`calculateOverallRunningScore` 對 walk summary 計算得出，比對方式見 1.1 規格；建議以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
 - ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，由 3.3 落實）舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。建議預設：拆出瀏覽器可用的 `lib/player/`（`solveKinematics`、`sampleCycleKeyframes`、`normalizeCycleKeyframes`，單一來源），其餘由 Server 回傳。
 - ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，由 3.3 落實）`RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；建議預設：移除本地運動學退回路徑；profile 靜態資料放 `lib/profiles/` 並附烘焙關鍵幀；`evaluateProfileCycle` 刪除、`getActiveRunnerTiming` 改唯讀。
