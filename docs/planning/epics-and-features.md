@@ -36,8 +36,8 @@
 | Feature | 名稱                         | 狀態    | 說明                                                                                  |
 | ------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------- |
 | 1.1     | 核心純計算模組搬成 ES module | done | `biomechanics`、`keyframes`、`landmark-extract`、`cycle-analysis`、`keyframes-builder`（由 1.2 提前）；與 baseline 逐值一致 |
-| 1.2     | analyze 主流程與契約 v1.0.0  | planned | `analyzeRequest`、`validateAnalysisJSON`；回應符合契約；改用正式 `analyzeRequest` 並刪除 `tests/helpers/landmarks-pipeline.js` |
-| 1.3     | Route Handler `/api/analyze` | planned | 請求驗證（範圍、大小上限）、錯誤格式、不回傳 stack                                    |
+| 1.2     | analyze 主流程與契約 v1.0.0  | in progress | `analyzeRequest`（回傳錯誤類型，狀態碼由 1.3 對應）、`LIMITS`／`validateRequest`、`validateAnalysisJSON`（`lib/contract/`，非 server-only）；契約文件搬入；baseline 改用正式 `analyzeRequest`，已刪除 `tests/helpers/landmarks-pipeline.js` |
+| 1.3     | Route Handler `/api/analyze` | planned | 請求驗證（範圍、大小上限）、錯誤格式、不回傳 stack；錯誤類型 → 狀態碼對應（400／413／422，非預期例外 500）、`LIMITS.maxBodyBytes` 讀 body 上限 |
 
 ## Epic 2 — 存取控制（同源）
 
@@ -66,7 +66,7 @@
 ## 待處理（來自舊專案）
 
 - ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：搬入 Client（3.2）後另開 `fix-` 處理。
-- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 隨 1.2 的 validate 進來，判斷式合併須逐處確認空值行為，另開 refactor 或併入 1.2，並以 baseline 驗證。
+- ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 已於 1.2 成為 `LIMITS.maxAcceptedFrames`／`minAcceptedFrames`（Server 端單一來源；Client 的 `>= 55`／`< 8` 於 3.2 搬入後暫時重複，3.3 移除本地解算時消失）。判斷式合併 1.2 不處理，另開 `refactor-` Feature（建議 3.2 之後），開工前先補「步頻 < 135」與「avgElbow／hipRomDeg 為 null」的對照值（現有 landmarks 樣本步頻皆 ≥ 135，`isWalking` 的 true 分支只靠逐字 diff）。
 - ✅ 「觸地 361ms／總分 96」基準來源已確認：由核心 `computeGctMetrics`／`calculateOverallRunningScore` 對 walk summary 計算得出，比對方式見 1.1 規格；建議以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
 - ⏳ 舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。3.1 須決定：拆出瀏覽器可用的播放／繪圖純函式模組，或全部改由 Server 回傳結果。
 - ⏳ `RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；3.1 盤點 Client 依賴時決定去向（是否保留本地運動學退回路徑、profile 靜態資料放哪裡）。
