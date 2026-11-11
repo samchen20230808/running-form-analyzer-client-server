@@ -1,16 +1,31 @@
-# Current Feature
+# Current Feature: 2.2 隱私說明與文件
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 新增 `docs/privacy.md`（11 章節，承諾對應程式位置，與實際行為一致）
+- 新增 `README.md`（版本與 `APP_CONFIG.version` 一致、文件索引、隱私／存取控制摘要）
+- 更新 `docs/server-api.md`「隱私」為摘要＋連結，並修正 IP 保留描述（不再「即丟棄」）
+- 程式只改註解（`access-control.js`、`http-handler.js`），行為零變更
+- 新增 `tests/privacy-docs.test.js` 一致性測試
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+Spec: `context/features/2-2-privacy-and-docs.md`；branch `feature-privacy-and-docs`。
+
+**Baseline（動手前）**：`REQUIRE_BASELINE=1 npm test` 149 通過；`npm run build` 成功。
+
+**驗證結果**：
+- `npm run lint` 無問題；`npm run build` 成功（`/api/analyze` 為 `ƒ`）。
+- `REQUIRE_BASELINE=1 npm test` 158 通過；不帶變數 157 通過＋1 skip（baseline 不變：walk 103／361ms／96、三份 landmarks 193／176／150）。
+- 一致性測試有效性（mutation，已還原）：「30 次」→「20 次」、加回「即丟棄」、`access-control.js` 加 `console.log`、README 版本改 `V0.0`，各自使測試失敗。
+- `git diff -- lib app next.config.mjs package.json`：只有 2 檔共 3 行註解變更。
+- dev server 實測（埠 3001，3000 被其他程序占用）：200／400／403／首頁 200；終端機只印 `POST /api/analyze <狀態> in <ms>`，無 IP（含帶 `X-Forwarded-For: 203.0.113.9` 的請求）、body 或 landmarks 數值，與 `privacy.md` 第 5 章一致。首頁 HTML 的 script／link 皆為同源，無第三方網域。已關閉 dev server。
+- Opus review：可 complete。已處理：privacy.md 補 IP 取得方式、修正「不持有參照」引用位置、補預設值說明；README 加「目標架構」；測試改用正則並擴大禁用清單、連結改比對 Markdown 語法、移除過度的 `*` 行過濾。修正後 lint 通過、`REQUIRE_BASELINE=1` 158 通過。留作日後：掃描範圍擴及根目錄檔案與 `.mjs`／`.jsx`。
+- Playwright：本 Feature 無 UI／互動變更，改以 curl 檢查首頁資源（同 2.1 做法）。
 
 ## History
 
