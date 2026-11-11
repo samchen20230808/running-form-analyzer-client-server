@@ -12,3 +12,5 @@ out/
 
 *.log
 coverage/
+
+.vitest/

@@ -12,6 +12,7 @@ import {
   generatePoseMethodAlignedCycle,
   CYCLE_KEYFRAME_NUMERIC_FIELDS,
 } from "../lib/core/index.js";
+import { POST } from "../app/api/analyze/route.js";
 import { analyzeRequest } from "../lib/server/analyze.js";
 import { validateAnalysisJSON } from "../lib/contract/validate-analysis-json.js";
 
@@ -214,5 +215,40 @@ describe.skipIf(!available)("核心逐值比對", () => {
     expect(b.profileName).toBe("測試");
     const strip = ({ profileName: _p, timestamp: _t, ...rest }) => rest;
     expect(strip(b)).toStrictEqual(strip(a));
+  });
+});
+
+describe.skipIf(!available)("POST /api/analyze 與 analyzeRequest 一致", () => {
+  const noTs = (o) => {
+    const c = structuredClone(o);
+    delete c.timestamp;
+    return c;
+  };
+  it.each(Object.keys(BASELINE.landmarks))("%s", async (name) => {
+    const req = load(`landmarks-${name}.json`);
+    const res = await POST(
+      new Request("http://localhost/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const json = await res.json();
+    const b = BASELINE.landmarks[name];
+    expect(json.cadence).toBe(b.cadence);
+    expect(json.metrics.gctMs).toBe(b.gctMs);
+    expect(json.metrics.flightMs).toBe(b.flightMs);
+    expect(json.metrics.overallScore).toBe(b.overallScore);
+    expect(json.metrics.isWalking).toBe(false);
+    const direct = plain(analyzeRequest(req).result);
+    expect(noTs(json)).toStrictEqual(noTs(direct));
+    expect(Object.keys(json)).toEqual(Object.keys(direct));
+    expect(json.summary).toStrictEqual(load(`client-${name}.json`).summary);
+    const v = validateAnalysisJSON(json);
+    expect(v.ok).toBe(true);
+    expect(v.errors).toEqual([]);
+    expect(v.warnings).toEqual([]);
   });
 });

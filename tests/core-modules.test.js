@@ -97,6 +97,15 @@ describe("server-only 與環境隔離", () => {
     }
   });
 
+  it("route.js 只 import http-handler；http-handler 不一次讀完整個 body", () => {
+    const route = readFileSync(new URL("../app/api/analyze/route.js", import.meta.url), "utf8");
+    const imports = [...route.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
+    expect(imports).toEqual(["../../../lib/server/http-handler.js"]);
+    const handler = readFileSync(new URL("http-handler.js", SERVER_DIR), "utf8");
+    expect(handler).not.toMatch(/request\.(text|json|arrayBuffer)\(/);
+    expect(serverFiles).toEqual(expect.arrayContaining(["http-handler.js", "access-control.js"]));
+  });
+
   it("lib/contract 非 server-only，且只 import ../config.js", () => {
     for (const f of contractFiles) {
       const src = readFileSync(new URL(f, CONTRACT_DIR), "utf8");
