@@ -1,10 +1,10 @@
-function extractExactAnglesWithAspectCorrection(lm, W, H) {
+function extractExactAnglesWithAspectCorrection(lm, W, H, videoTime) {
   const { extracted, runDirection: dir } = extractAnglesFromLandmarks(lm, W, H, {
     runDirection,
     isManualDirection,
     heightCm:
       parseFloat(document.getElementById("runnerHeightInput")?.value) || 172,
-    videoTime: sourceVideo.currentTime || 0,
+    videoTime,
   });
   if (dir !== runDirection) {
     setRunDirection(dir, false);
@@ -36,7 +36,9 @@ function onPoseResults(results) {
       });
     }
 
-    const extracted = extractExactAnglesWithAspectCorrection(lm, W, H);
+    // t 與傳給角度擷取的 videoTime 必須是同一次讀取（Server 以 t 重算步頻）
+    const videoTime = sourceVideo.currentTime || 0;
+    const extracted = extractExactAnglesWithAspectCorrection(lm, W, H, videoTime);
     document.getElementById("liveVideoTrunk").textContent =
       `${extracted.trunk.toFixed(1)}°`;
     document.getElementById("liveVideoKnee").textContent =
@@ -49,6 +51,13 @@ function onPoseResults(results) {
     }
 
     if (isCapturingCycle) {
+      // 閘門判斷前先記錄（含觸發 finalize 的那一幀），供上傳給 Server 重跑；不四捨五入、不送 z
+      if (sourceVideo.src) {
+        capturedLandmarkFrames.push({
+          t: videoTime,
+          lm: lm.map((p) => [p.x, p.y, p.visibility ?? null]),
+        });
+      }
       const gate = evaluateCaptureFrame(
         extracted,
         capturedRawFrames,
@@ -78,12 +87,25 @@ function onPoseResults(results) {
           finalizeCycleExtraction();
         }
       }
+
+      if (isCapturingCycle && capturedLandmarkFrames.length >= MAX_UPLOAD_FRAMES) {
+        finalizeCycleExtraction();
+      }
     }
   }
   videoCtx.restore();
 }
 
 function triggerCycleExtraction() {
+  if (isAnalyzingRemote) return;
+  captureSeq++;
+  capturedLandmarkFrames = [];
+  captureStart = {
+    runDirection,
+    isManualDirection,
+    heightCm:
+      parseFloat(document.getElementById("runnerHeightInput")?.value) || 172,
+  };
   capturedRawFrames = [];
   lockedSubjectHipX = null;
   lockedSubjectHipY = null;
@@ -132,13 +154,28 @@ function triggerCycleExtraction() {
   }
 }
 
+const CAPTURE_BTN_IDLE_HTML =
+  '<span class="w-2 h-2 rounded-full bg-slate-950"></span><span>🟢 智慧擷取個人步態 (從當前影格開始)</span>';
+const CAPTURE_BTN_IDLE_CLASS =
+  "px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition flex items-center gap-1.5";
+
+function showCaptureDone(btn) {
+  btn.className = CAPTURE_BTN_IDLE_CLASS;
+  btn.innerHTML =
+    '<span class="w-2 h-2 rounded-full bg-slate-950"></span><span>✅ 步態週期已精準解析！</span>';
+  setTimeout(() => {
+    btn.innerHTML = CAPTURE_BTN_IDLE_HTML;
+  }, 2500);
+}
+
 function finalizeCycleExtraction() {
-  if (!isCapturingCycle && capturedRawFrames.length === 0) return;
+  if (!isCapturingCycle) return;
   isCapturingCycle = false;
   livePoseOverride = null;
   document.getElementById("liveSyncToggle").checked = false;
 
-  if (sourceVideo.src) {
+  const isVideo = Boolean(sourceVideo.src);
+  if (isVideo) {
     sourceVideo.playbackRate = savedVideoPlaybackRate;
     document.getElementById("videoRateSelect").value = String(
       savedVideoPlaybackRate,
@@ -146,20 +183,22 @@ function finalizeCycleExtraction() {
   }
 
   const btn = document.getElementById("captureCycleBtn");
-  btn.className =
-    "px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition flex items-center gap-1.5";
-  btn.innerHTML =
-    '<span class="w-2 h-2 rounded-full bg-slate-950"></span><span>✅ 步態週期已精準解析！</span>';
-  setTimeout(() => {
+  if (isVideo && capturedRawFrames.length >= 8) {
+    // 影片擷取：上傳 landmarks 給 Server，結果回來才顯示完成
+    btn.className = CAPTURE_BTN_IDLE_CLASS + " opacity-70 cursor-wait";
+    btn.disabled = true;
     btn.innerHTML =
-      '<span class="w-2 h-2 rounded-full bg-slate-950"></span><span>🟢 智慧擷取個人步態 (從當前影格開始)</span>';
-  }, 2500);
+      '<span class="w-2 h-2 rounded-full bg-slate-950 animate-ping"></span><span>☁️ 上傳分析中…</span>';
+    requestServerAnalysis(captureSeq);
+    return;
+  }
 
+  showCaptureDone(btn);
   if (capturedRawFrames.length < 8) return;
+
+  // 無影片的模擬擷取仍在本地分析（D9，3.5 處理）
   const heightCm =
     parseFloat(document.getElementById("runnerHeightInput").value) || 172;
-
-  // 純計算交給 cycle-analysis.js（Client 與 Server 共用）
   const { cadence: detectedCadence, summary: newSummary } =
     analyzeCapturedFrames(capturedRawFrames, {
       heightCm,
@@ -167,24 +206,115 @@ function finalizeCycleExtraction() {
       canvasW: videoCanvas.width,
       runDirection,
     });
+  applyCapturedResult(detectedCadence, newSummary, null);
+}
 
-  // 依據手動設定或自動偵測決定步幅（含 strideModeText、輸入框等 UI 副作用）
-  recalculateStrideForCameraMode(newSummary);
+// 套用擷取結果：依手動設定或自動偵測決定步幅，建立 custom_captured 並切換
+function applyCapturedResult(cadence, summary, cycleKeyframes) {
+  recalculateStrideForCameraMode(summary);
 
-  RUNNER_PROFILES.custom_captured.cadence = detectedCadence;
-  RUNNER_PROFILES.custom_captured.summary = newSummary;
-
-  const alignedSampled = [];
-  for (let i = 0; i <= 20; i++) {
-    alignedSampled.push(
-      evaluateProfileCycle(RUNNER_PROFILES.custom_captured, i / 20),
-    );
+  RUNNER_PROFILES.custom_captured.cadence = cadence;
+  RUNNER_PROFILES.custom_captured.summary = summary;
+  // 重新擷取前一律清掉舊關鍵幀，避免新 summary 搭配舊關鍵幀
+  delete RUNNER_PROFILES.custom_captured.cycleKeyframes;
+  if (cycleKeyframes !== undefined && cycleKeyframes !== null) {
+    const ck = normalizeCycleKeyframes(cycleKeyframes);
+    if (ck.ok) {
+      RUNNER_PROFILES.custom_captured.cycleKeyframes = ck.keyframes;
+    } else {
+      console.warn("Server 回傳的 cycleKeyframes 不合法，退回本地運動學：", ck.errors);
+    }
   }
-  RUNNER_PROFILES.custom_captured.customCycleFrames = alignedSampled;
 
   document.getElementById("customVideoProfileOption").disabled = false;
   document.getElementById("profileSelect").value = "custom_captured";
   switchProfile("custom_captured");
+}
+
+function resetCaptureButton() {
+  const btn = document.getElementById("captureCycleBtn");
+  btn.disabled = false;
+  btn.className = CAPTURE_BTN_IDLE_CLASS;
+  btn.innerHTML = CAPTURE_BTN_IDLE_HTML;
+}
+
+// 上傳擷取期間的 landmarks（同源 POST /api/analyze）；不送 profileName（含影片檔名）
+async function requestServerAnalysis(seq) {
+  isAnalyzingRemote = true;
+  const start = captureStart;
+  const body = JSON.stringify({
+    frameWidth: videoCanvas.width,
+    frameHeight: videoCanvas.height,
+    heightCm: start.heightCm,
+    cameraMode: selectedCameraMode,
+    runDirection: start.runDirection,
+    isManualDirection: start.isManualDirection,
+    frames: capturedLandmarkFrames,
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+  let message = null;
+  let data = null;
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal,
+    });
+    let payload = {};
+    try {
+      payload = await res.json();
+    } catch (err) {
+      if (err && err.name === "AbortError") throw err;
+    }
+    if (res.ok) {
+      if (
+        payload &&
+        typeof payload.summary === "object" &&
+        payload.summary !== null &&
+        Number.isFinite(payload.cadence)
+      ) {
+        data = payload;
+      } else {
+        message = "分析服務回應格式錯誤";
+      }
+    } else if (res.status === 422) {
+      message = `有效步態影格不足（${payload.acceptedFrames ?? 0}/8），請調整起點或畫面後重試`;
+    } else if (res.status === 429) {
+      const wait = res.headers.get("Retry-After") || "數";
+      message = `請求過於頻繁，請 ${wait} 秒後再試`;
+    } else if (res.status === 400) {
+      console.warn("analyze 400：", payload.details);
+      message = "擷取資料不符格式（例如身高須介於 50–250 cm）";
+    } else if (res.status === 413) {
+      message = "擷取資料過大，請縮短擷取區間";
+    } else {
+      message = `分析服務暫時無法使用（${res.status}）`;
+    }
+  } catch (err) {
+    message =
+      err && err.name === "AbortError"
+        ? "分析逾時，請重試"
+        : "無法連線到分析服務";
+    console.warn("analyze 請求失敗：", err);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  // 過時回應（期間換了影片或重新擷取）：丟棄，不提示、不改狀態
+  if (seq !== captureSeq) return;
+  isAnalyzingRemote = false;
+  const btn = document.getElementById("captureCycleBtn");
+  btn.disabled = false;
+
+  if (data) {
+    applyCapturedResult(data.cadence, data.summary, data.cycleKeyframes);
+    showCaptureDone(btn);
+  } else {
+    resetCaptureButton();
+    alert(message);
+  }
 }
 
 function buildSafeSummaryFromJSON(data, cadenceVal) {

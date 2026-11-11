@@ -4,19 +4,19 @@
 
 ## 1. 摘要
 
-- 影片不離開瀏覽器：由 MediaPipe 在瀏覽器內處理（3.2 起成立；3.2 的 Client **完全不呼叫 API**，見第 2 節）。
-- Server 只收 landmarks 等數值（33 個關節點座標、時間與少數設定），**不收影片、影像或音訊**（`/api/analyze` 的規格；Client 開始上傳要到 3.3）。
+- 影片不離開瀏覽器：由 MediaPipe 在瀏覽器內處理（3.2 起成立，見第 2 節）。
+- Server 只收 landmarks 等數值（33 個關節點座標、時間與少數設定），**不收影片、影像或音訊**（`/api/analyze` 的規格；3.3 起影片擷取完成時才上傳）。
 - Server 不儲存請求內容；程式唯一的 log 是非預期例外時的固定字串 `analyze failed`。
 - IP 只在 Server 記憶體中用於限流，不寫入 log、檔案或外部服務。
 - 部署平台（Vercel）本身可能另有 log，不在本程式控制範圍。
 
 ## 2. 目前狀態
 
-3.2 起，`/` 導向 `/legacy/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`、`public/legacy/`）。它**會在瀏覽器擷取影像（MediaPipe）、不呼叫 API、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。
+3.2 起，`/` 導向 `/legacy/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`、`public/legacy/`）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取、JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。
 
-**過渡期（3.2 完成至 3.3 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，整套分析在本機完成；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。「核心只在 Server」要到 3.3 移除暫時核心後才成立。
+**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
 
-「只上傳 landmarks」是 3.3 起的行為，3.3 完成時必須重新核對本文件。
+3.3 起，影片擷取完成時會上傳擷取期間的**每一幀** landmarks（最多 1500 幀，最多約 3.5 MB），Client **不送 `profileName`**，所以 API 回應不含影片檔名；但匯出的 JSON 的 `profileName` 由 Client 本地寫入，仍含影片檔名（與 3.2 相同）。3.7 完成時須再核對本文件。
 
 ## 3. 上傳的資料
 
@@ -25,7 +25,7 @@
 | `frameWidth`、`frameHeight` | 擷取畫面尺寸 | 否（用於解算） |
 | `heightCm` | 使用者輸入的身高 | 是 |
 | `cameraMode`、`runDirection`、`isManualDirection` | 擷取設定 | `cameraMode` 是 |
-| `profileName`（選填，≤ 200 字） | 設定檔名稱 | 有提供時是 |
+| `profileName`（選填，≤ 200 字） | 設定檔名稱（3.3 起舊 Client 不送） | 有提供時是 |
 | `frames[]` | 每幀 `t` 與 `lm`（33 點 `[x, y, visibility]`） | 否 |
 
 （`lib/server/validate-request.js`、[server-api.md](server-api.md#請求)）
@@ -80,10 +80,10 @@
 
 - 限流改用外部儲存（Upstash Redis，IP 會存到第三方）
 - 加入 Turnstile 或登入
-- Client 開始上傳（3.3）、新增重算端點（`docs/client-server-boundary.md` D6）
+- 新增重算端點（`docs/client-server-boundary.md` D6）
 - 頁面 CSP、第三方資源釘版或自託管
 - 部署（4.1）
 
 ## 11. 文件與程式的一致性
 
-`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：暫時核心只在 `public/legacy/temp-core/` 且帶 `TEMP-CORE` 標示、`app/`／`lib/` 不引用它、舊 Client 不使用瀏覽器儲存也不呼叫 API、`VERCEL` 環境的部署防線。`next.config.mjs` 在 build 時讀 `VERCEL` 作為部署防線，不屬 Server 執行期。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。
+`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：暫時核心只在 `public/legacy/temp-core/` 且帶 `TEMP-CORE` 標示、`app/`／`lib/` 不引用它、舊 Client 不使用瀏覽器儲存與其他外送通道、`fetch` 只有一處（`js/analyzer.js` 的相對路徑 `/api/analyze`）、上傳請求不含 `profileName`、上傳幀數上限不超過 `LIMITS`、`VERCEL` 環境的部署防線。`next.config.mjs` 在 build 時讀 `VERCEL` 作為部署防線，不屬 Server 執行期。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。

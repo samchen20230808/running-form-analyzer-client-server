@@ -1,8 +1,9 @@
 // 3.2 過渡期：原樣搬入的舊 Client 與暫時核心（temp-core）的隔離與防線。
-// 斷言刻意粗糙（存在性、字串包含）。3.3 移除 temp-core 時，本檔須一併改寫。
+// 斷言刻意粗糙（存在性、字串包含）。3.7 移除 temp-core 時，本檔須一併改寫。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../lib/config.js";
+import { LIMITS } from "../lib/server/validate-request.js";
 
 const ROOT = new URL("../", import.meta.url);
 const read = (p) => readFileSync(new URL(p, ROOT), "utf8");
@@ -62,7 +63,7 @@ describe("舊 Client 的一致性", () => {
     expect(m?.[1]).toBe(APP_CONFIG.version);
   });
 
-  it("不使用瀏覽器儲存、不呼叫 API（3.3 接 API 時須改這條）", () => {
+  it("不使用瀏覽器儲存與其他外送通道", () => {
     const files = [...listFiles("public/legacy/", ".js"), "public/legacy/index.html"];
     for (const p of files) {
       const src = read(p);
@@ -71,7 +72,6 @@ describe("舊 Client 的一致性", () => {
         /sessionStorage/,
         /indexedDB/,
         /document\.cookie/,
-        /\bfetch\s*\(/,
         /XMLHttpRequest/,
         /sendBeacon/,
         /WebSocket/,
@@ -80,6 +80,45 @@ describe("舊 Client 的一致性", () => {
         expect(src, `${p} 含 ${banned}`).not.toMatch(banned);
       }
     }
+  });
+
+  it("fetch 只有一處：public/legacy/js/analyzer.js 的相對路徑 /api/analyze", () => {
+    const hits = [];
+    for (const p of [...listFiles("public/legacy/", ".js"), "public/legacy/index.html"]) {
+      const lines = read(p).split(/\r?\n/);
+      lines.forEach((l, i) => {
+        if (/\bfetch\s*\(/.test(l)) hits.push({ p, text: `${l} ${lines[i + 1] ?? ""}` });
+      });
+    }
+    expect(hits).toHaveLength(1);
+    expect(hits[0].p).toBe("public/legacy/js/analyzer.js");
+    expect(hits[0].text).toContain('"/api/analyze"');
+    expect(hits[0].text).not.toMatch(/https?:/);
+  });
+
+  it("上傳請求不含 profileName（含影片檔名），也不送 z", () => {
+    const src = read("public/legacy/js/analyzer.js");
+    const start = src.indexOf("async function requestServerAnalysis");
+    const end = src.indexOf("function buildSafeSummaryFromJSON");
+    const fn = src.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(fn).not.toContain("profileName");
+    expect(src).toContain("lm.map((p) => [p.x, p.y, p.visibility ?? null])");
+  });
+
+  it("上傳上限不超過 Server 的 LIMITS", () => {
+    const m = read("public/legacy/js/state.js").match(/MAX_UPLOAD_FRAMES\s*=\s*(\d+)/);
+    const max = Number(m?.[1]);
+    expect(max).toBeGreaterThan(0);
+    expect(max).toBeLessThanOrEqual(LIMITS.maxFrames);
+    expect(max * 2400).toBeLessThan(LIMITS.maxBodyBytes);
+  });
+
+  it("customCycleFrames 死碼已刪除", () => {
+    for (const p of listFiles("public/legacy/", ".js")) {
+      expect(read(p), p).not.toContain("customCycleFrames");
+    }
+    expect(read("public/legacy/index.html")).not.toContain("customCycleFrames");
   });
 
   it("public/ 中核心特有字串只出現在 temp-core/", () => {
