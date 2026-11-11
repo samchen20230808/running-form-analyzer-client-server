@@ -1,16 +1,42 @@
-# Current Feature
+# Current Feature: 1.3 Route Handler `/api/analyze`
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- `app/api/analyze/route.js`（POST、nodejs）只轉呼叫 `lib/server/http-handler.js` 的 `handleAnalyzeHttp`
+- 串流讀 body，以 `LIMITS.maxBodyBytes` 強制上限（不只信 Content-Length）→ 413
+- 錯誤對應：Content-Type 415、JSON 解析失敗 400、`invalid_request` 400、`payload_too_large` 413、`insufficient_frames` 422、非預期例外 500（不回 stack）
+- 所有回應 `Cache-Control: no-store`，無 CORS；非 POST 由 Next 回 405
+- `lib/server/access-control.js` 作為存取控制單一接入點（放行 stub），讀 body 前執行
+- 測試：`tests/api-analyze-route.test.js`、baseline 三份 landmarks 經 POST 逐值一致、core-modules import 限制
+- 新增 `docs/server-api.md`，更新路線圖
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+Spec: `context/features/1-3-api-analyze-route.md`。待決定事項採規格建議：1=A（walk 沿用既有測試）、2=A（Content-Type 嚴格比對）、3=只加 Cache-Control、4=A（Next 自動 405）、5=做舊新對照。
+
+### Baseline（開工前）
+- `npm run build` 成功（`/`、`/_not-found`、`/icon.svg` 皆靜態）
+- `REQUIRE_BASELINE=1 npm test`：5 檔 68 通過
+
+### 驗證結果
+- `npm run lint` 無錯誤；`npm run build` 成功，路由表 `/api/analyze` 為 `ƒ`（動態）
+- `REQUIRE_BASELINE=1 npm test`：6 檔 105 通過（開工前 68；Opus review 後補強測試與 `checkAccess` status 防呆）；不帶變數 103 通過、1 skip；無 `.temp` 時 route 測試照常執行（87 通過、17 skip）
+- walk 103／361ms／96、`kf-*` 逐字相同（既有測試）；三份 landmarks 經 `POST` 為 193／176／150，metrics 與基準一致，去 `timestamp` 後與 `analyzeRequest` `toStrictEqual`、key 順序相同，`validateAnalysisJSON` 無 warning
+- 舊新對照（scratchpad 一次性腳本，舊 `handleAnalyzeHttp` dev-open vs 新 `POST`，13 案例）：狀態碼與 body 完全一致（舊 handler 以 `process.cwd()` 載核心，比對時暫時切 cwd）
+- curl（dev，埠 3001）：200／400（非法 JSON、`{}`）／415／422／413（Content-Length 預檢與 chunked 串流計數兩條路徑）皆符合；GET／PUT／DELETE 405 與 OPTIONS 204（`allow: OPTIONS, POST`）都帶 `Cache-Control: no-store`；無 `Access-Control-*`、無 `X-Powered-By`；dev log 無錯誤
+- `.next/static` 搜尋不到核心字串與 `analyze failed`
+- Playwright：瀏覽器被其他實例占用（重試仍失敗），經使用者同意以 curl 替代；curl 驗證 `/` 與全部資源皆 200；無互動變更，略過第 4 項。dev server 已關閉
+
+### 決策與備註
+- 待決定事項採規格建議；Content-Type 嚴格比對是與舊 Server 唯一刻意差異（已寫入 `docs/server-api.md`）
+- walk 樣本無 landmarks，無法經 route；route 層以三份 landmarks 證明
+- `.gitignore` 加 `.vitest/`（RTK 包裝 vitest 時產生的 JSON 報告）
+- 路線圖 1.3 暫標 `in progress`，complete 時改 `done`
+- 已知：Vercel 4.5 MB 平台上限待 4.1 實測；2.1 存取控制須留在 route 內（`access-control.js`），不要放 `proxy.js`
 
 ## History
 

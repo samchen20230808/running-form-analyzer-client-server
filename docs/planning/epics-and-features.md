@@ -37,13 +37,13 @@
 | ------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------- |
 | 1.1     | 核心純計算模組搬成 ES module | done | `biomechanics`、`keyframes`、`landmark-extract`、`cycle-analysis`、`keyframes-builder`（由 1.2 提前）；與 baseline 逐值一致 |
 | 1.2     | analyze 主流程與契約 v1.0.0  | done | `analyzeRequest`（回傳錯誤類型，狀態碼由 1.3 對應）、`LIMITS`／`validateRequest`、`validateAnalysisJSON`（`lib/contract/`，非 server-only）；契約文件搬入；baseline 改用正式 `analyzeRequest`，已刪除 `tests/helpers/landmarks-pipeline.js` |
-| 1.3     | Route Handler `/api/analyze` | planned | 請求驗證（範圍、大小上限）、錯誤格式、不回傳 stack；錯誤類型 → 狀態碼對應（400／413／422，非預期例外 500）、`LIMITS.maxBodyBytes` 讀 body 上限 |
+| 1.3     | Route Handler `/api/analyze` | in progress | `app/api/analyze/route.js` → `lib/server/http-handler.js`：串流讀 body 強制 `LIMITS.maxBodyBytes`、Content-Type 嚴格比對、400／413／415／422／500、`Cache-Control: no-store`；存取控制單一接入點 `lib/server/access-control.js`（放行 stub）；`docs/server-api.md` |
 
 ## Epic 2 — 存取控制（同源）
 
 | Feature | 名稱             | 狀態    | 說明                                                                    |
 | ------- | ---------------- | ------- | ----------------------------------------------------------------------- |
-| 2.1     | 同源存取模型     | planned | Origin／`Sec-Fetch-Site` 檢查、每 IP 限流、安全標頭、無 CORS；單一模組   |
+| 2.1     | 同源存取模型     | planned | Origin／`Sec-Fetch-Site` 檢查、每 IP 限流、安全標頭、無 CORS；單一模組；實作於 `lib/server/access-control.js`，其餘安全標頭加入 `RESPONSE_HEADERS` 與 `next.config.mjs` `headers()`    |
 | 2.2     | 隱私說明與文件   | planned | 只上傳 landmarks、不儲存不記錄；限流限制如實記載                        |
 
 ## Epic 3 — Client 改為呼叫 Server
