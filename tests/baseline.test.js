@@ -5,13 +5,17 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  APP_CONFIG,
   buildCycleKeyframesFromSummary,
   calculateOverallRunningScore,
   computeGctMetrics,
   generatePoseMethodAlignedCycle,
   CYCLE_KEYFRAME_NUMERIC_FIELDS,
 } from "../lib/core/index.js";
-import { plain, runLandmarksPipeline } from "./helpers/landmarks-pipeline.js";
+import { analyzeRequest } from "../lib/server/analyze.js";
+import { validateAnalysisJSON } from "../lib/contract/validate-analysis-json.js";
+
+const plain = (v) => JSON.parse(JSON.stringify(v));
 
 const DIR = new URL("../.temp/json/", import.meta.url);
 const available = existsSync(DIR);
@@ -28,9 +32,9 @@ const BASELINE = {
   },
   keyframes: { "kf-walk-101.json": 103, "kf-hsu-101.json": 184 },
   landmarks: {
-    "walkrun-a": 176,
-    "walkrun-b": 150,
-    woman03: 193,
+    "walkrun-a": { cadence: 176, gctMs: 192, flightMs: 149, overallScore: 90 },
+    "walkrun-b": { cadence: 150, gctMs: 230, flightMs: 170, overallScore: 75 },
+    woman03: { cadence: 193, gctMs: 193, flightMs: 118, overallScore: 66 },
   },
 };
 
@@ -57,7 +61,7 @@ describe.skipIf(!available)("baseline 樣本格式", () => {
     expect(j.summary).toBeTypeOf("object");
   });
 
-  for (const [name, cadence] of Object.entries(BASELINE.landmarks)) {
+  for (const [name, { cadence }] of Object.entries(BASELINE.landmarks)) {
     it(`landmarks-${name}：請求格式正確，client 基準步頻 ${cadence}`, () => {
       const req = load(`landmarks-${name}.json`);
       expect(req.frameWidth).toBeGreaterThan(0);
@@ -106,22 +110,71 @@ describe.skipIf(!available)("核心逐值比對", () => {
     });
   }
 
-  for (const [name, cadence] of Object.entries(BASELINE.landmarks)) {
-    it(`landmarks-${name}：步頻 ${cadence}，summary／metrics 與 client 完全相同`, () => {
-      const out = runLandmarksPipeline(load(`landmarks-${name}.json`));
-      const client = load(`client-${name}.json`);
-      expect(out.cadence, name).toBe(cadence);
-      expect(out.cadence, name).toBe(client.cadence);
-      expect(out.summary, name).toStrictEqual(client.summary);
-      expect(out.metrics, name).toStrictEqual({
-        gctMs: client.metrics.gctMs,
-        flightMs: client.metrics.flightMs,
-        overallScore: client.metrics.overallScore,
-      });
+  const TOP_KEYS = [
+    "schemaVersion",
+    "version",
+    "source",
+    "timestamp",
+    "profileKey",
+    "cameraMode",
+    "heightCm",
+    "cadence",
+    "strideMeters",
+    "isManualStride",
+    "phaseTiming",
+    "summary",
+    "metrics",
+    "cycleKeyframes",
+  ];
 
-      const built = buildCycleKeyframesFromSummary(out.summary, out.cadence, 100);
-      expect(built.frames).toHaveLength(101);
-      for (const fr of built.frames) {
+  // 產生端義務（契約 §2.2、§2.3、§2.5）；舊核心若本來就不符，記錄、不修核心
+  function expectProducerContract(r) {
+    const s = r.summary;
+    expect(r.cadence).toBeGreaterThanOrEqual(60);
+    expect(r.cadence).toBeLessThanOrEqual(240);
+    for (const k of ["touchdownKnee", "minSwingKnee", "avgElbow"]) {
+      expect(s[k], k).toBeGreaterThanOrEqual(0);
+      expect(s[k], k).toBeLessThanOrEqual(180);
+    }
+    expect(s.strideMeters).toBeGreaterThan(0);
+    const pt = r.phaseTiming;
+    expect(pt.touchPct).toBeLessThanOrEqual(pt.posePct);
+    expect(pt.posePct).toBeLessThanOrEqual(pt.fallPct);
+    expect(pt.fallPct).toBeLessThanOrEqual(pt.pullPct);
+    const fr = r.cycleKeyframes.frames;
+    for (let i = 1; i < fr.length; i++) expect(fr[i].p).toBeGreaterThan(fr[i - 1].p);
+    expect(fr[0].p).toBe(0);
+    expect(fr[fr.length - 1].p).toBe(1);
+    for (const k of CYCLE_KEYFRAME_NUMERIC_FIELDS) {
+      expect(fr[fr.length - 1][k], k).toBe(fr[0][k]);
+    }
+  }
+
+  for (const [name, expected] of Object.entries(BASELINE.landmarks)) {
+    it(`landmarks-${name}：analyzeRequest 步頻 ${expected.cadence}，與 client 完全相同`, () => {
+      const req = load(`landmarks-${name}.json`);
+      const out = analyzeRequest(req);
+      expect(out.ok, name).toBe(true);
+      const { result } = out;
+      const client = load(`client-${name}.json`);
+      expect(result.cadence, name).toBe(expected.cadence);
+      expect(result.cadence, name).toBe(client.cadence);
+      expect(result.summary, name).toStrictEqual(client.summary);
+      expect(result.metrics, name).toStrictEqual({
+        gctMs: expected.gctMs,
+        flightMs: expected.flightMs,
+        isWalking: false,
+        overallScore: expected.overallScore,
+      });
+      expect(result.metrics.gctMs, name).toBe(client.metrics.gctMs);
+      expect(result.metrics.flightMs, name).toBe(client.metrics.flightMs);
+      expect(result.metrics.overallScore, name).toBe(client.metrics.overallScore);
+
+      expect(JSON.stringify(result.cycleKeyframes), name).toBe(
+        JSON.stringify(plain(buildCycleKeyframesFromSummary(result.summary, result.cadence, 100))),
+      );
+      expect(result.cycleKeyframes.frames).toHaveLength(101);
+      for (const fr of result.cycleKeyframes.frames) {
         const a = generatePoseMethodAlignedCycle(fr.p, client.summary, client.cadence);
         for (const k of CYCLE_KEYFRAME_NUMERIC_FIELDS) {
           expect(Math.abs(fr[k] - a[k]), `${name} p=${fr.p} ${k}`).toBeLessThanOrEqual(1e-9);
@@ -129,6 +182,37 @@ describe.skipIf(!available)("核心逐值比對", () => {
         expect(fr.rIsStance).toBe(a.rIsStance);
         expect(fr.lIsStance).toBe(a.lIsStance);
       }
+
+      expect(Object.keys(result), name).toEqual(TOP_KEYS);
+      expect(result.schemaVersion).toBe("1.0.0");
+      expect(result.version).toBe(APP_CONFIG.version);
+      expect(result.source).toBe("server");
+      expect(result.profileKey).toBe("custom_captured");
+      expect(result.cameraMode).toBe(req.cameraMode ?? APP_CONFIG.defaults.cameraMode);
+      expect(result.heightCm).toBe(req.heightCm ?? APP_CONFIG.defaults.heightCm);
+      expect(result.strideMeters).toBe(result.summary.strideMeters);
+      expect(result.isManualStride).toBe(false);
+      expect(result.phaseTiming).toStrictEqual(result.summary.phaseTiming);
+      expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
+      expect(plain(result)).toStrictEqual(result);
+
+      expect(validateAnalysisJSON(result)).toStrictEqual({
+        ok: true,
+        legacy: false,
+        schemaVersion: "1.0.0",
+        errors: [],
+        warnings: [],
+      });
+      expectProducerContract(result);
     });
   }
+
+  it("profileName 原樣帶回，其餘與無 profileName 的結果相同", () => {
+    const req = load("landmarks-woman03.json");
+    const a = analyzeRequest(req).result;
+    const b = analyzeRequest({ ...req, profileName: "測試" }).result;
+    expect(b.profileName).toBe("測試");
+    const strip = ({ profileName: _p, timestamp: _t, ...rest }) => rest;
+    expect(strip(b)).toStrictEqual(strip(a));
+  });
 });

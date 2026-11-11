@@ -1,16 +1,36 @@
-# Current Feature
+# Current Feature: 1.2 analyze 主流程與契約 v1.0.0
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 把 `analyzeRequest`、`LIMITS`／`validateRequest` 照原樣搬成 `lib/server/*.js`（server-only），改經 `lib/core/index.js` 使用核心；`plain()` 照留，零行為變更。
+- `analyzeRequest` 不做 HTTP，回傳 `{ ok: true, result }` 或 `{ ok: false, error, … }`（`invalid_request`／`payload_too_large`／`insufficient_frames`），狀態碼由 1.3 對應。
+- 搬入 `validateAnalysisJSON` 至 `lib/contract/`（非 server-only，只 import `../config.js`），用來驗證回應符合契約 v1.0.0；`schemaVersion` 維持 `1.0.0`。
+- `baseline.test.js` 改用正式 `analyzeRequest`（walk 103／361ms／96；landmarks 193／176／150 與 client `toStrictEqual`），刪除 `tests/helpers/landmarks-pipeline.js`。
+- 55／8 進入 `LIMITS`；`isWalking`／`isBiomechanicalRunner` 判斷式不合併，只記錄。
+- 複製舊契約文件為 `docs/analysis-json-contract.md`（加說明與修訂紀錄）。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+Spec: `context/features/1-2-analyze-pipeline-contract.md`。待決定事項 1～6 皆採規格建議（A／A／複製契約／不合併／產生端義務失敗只記錄／做舊新對照）。
+
+### Baseline（開工前，branch `feature-analyze-pipeline-contract`）
+
+- `npm run build` 成功。
+- `REQUIRE_BASELINE=1 npm test`：3 檔 25 通過。
+
+### 驗證結果（實作後）
+
+- lint 無問題、`npm run build` 成功。
+- `REQUIRE_BASELINE=1 npm test`：5 檔 66 通過；不帶變數 65 通過、1 skip（baseline 樣本存在檢查）。walk 103／361ms／0／96、`kf-*` 逐字相同、三份 landmarks 經正式 `analyzeRequest`：193／176／150，summary 與 client `toStrictEqual`，metrics 193/118/66、192/149/90、230/170/75，`isWalking` 皆 false；`validateAnalysisJSON` 無 warning；`expectProducerContract` 全過（舊核心輸出符合產生端義務，無需記錄例外）。
+- 逐字 diff：`validate-request.js` 僅檔頭註解與 `import "server-only"`；`validateAnalysisJSON` 僅加 `export`；`analyze.js` 僅 import、`ANALYZE_ERRORS`、註解與回傳形狀。
+- 舊新完整對照（scratchpad 一次性腳本，未提交；`--pool=forks`＋`chdir` 舊 `server/`）：三份 landmarks 各兩種請求（含 `profileName`／`heightCm`／`cameraMode`），去除 `timestamp` 後 JSON 字串完全相同；11 個錯誤案例狀態碼對應與 `details`／`acceptedFrames` 相同（413 不帶 details）。14 項全過。
+- bundle：`"use client"` import `lib/server/analyze.js` → build 失敗並指出 `server-only`；Server Component import `LIMITS` ＋ Client import `lib/contract/validate-analysis-json.js` → build 成功，`.next/static` 無核心字串、契約驗證字串存在。已還原 `app/`。
+- 無 UI／API 端點變更，略過 Playwright 與 curl。`tests/helpers/` 已移除，無殘留引用（僅歷史文件提及）。
+- 已知：`isWalking` true 分支與步頻 < 135 判定為跑者的分支無 landmarks 樣本，僅靠逐字 diff；判斷式合併另開 refactor。路線圖 1.2 狀態標為 in progress，complete 時改 done。
 
 ## History
 
