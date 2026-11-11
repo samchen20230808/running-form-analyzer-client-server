@@ -115,7 +115,6 @@ const RUNNER_PROFILES = {
       strideMeters: 0.95,
       phaseTiming: { touchPct: 0, posePct: 15, fallPct: 30, pullPct: 75 },
     },
-    customCycleFrames: [],
     evalCycle: function (p) {
       return evaluateProfileAngles(this, p);
     },

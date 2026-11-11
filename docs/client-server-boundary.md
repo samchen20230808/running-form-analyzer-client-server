@@ -1,6 +1,6 @@
 # Client／Server 邊界與本地解算依賴盤點
 
-> 狀態：Feature 3.1 產出（調查，不改程式）。本文件描述 3.3 之後**預期**的邊界；文中提到的模組（`lib/player/`、`lib/profiles/`）、端點（`POST /api/derive`）與契約 1.1.0 **目前都不存在**，由 3.2／3.3 落實。
+> 狀態：Feature 3.1 產出（調查，不改程式）。本文件描述 3.3 之後**預期**的邊界；文中提到的模組（`lib/player/`、`lib/profiles/`）、端點（`POST /api/derive`）與契約 1.1.0 **目前都不存在**。落實的 Feature 因 3.3 規格而重新編號：3.3 影片擷取呼叫 `/api/analyze`；3.4 D1／D8（`lib/player/`、`lib/landmarks/`、橋接）；3.5 D2–D4／D9（`lib/profiles/`、模擬擷取）；3.6 D5／D6 的 Server 端（契約 1.1.0、`POST /api/derive`）；3.7 D5–D7 的 Client 端與移除 temp-core；原 3.4 報告匯出改為 3.8。下文與決策表中的「3.3」除特別標示外，一律指「3.4–3.7」。
 > 規格：[`context/features/3-1-client-local-solve-inventory.md`](../context/features/3-1-client-local-solve-inventory.md)。
 
 ## 1. 目的與結論摘要
@@ -12,12 +12,12 @@
 3. **本地運動學退回路徑移除**：每個 profile 必須帶關鍵幀；內建 profile 改用離線烘焙的 101 幀關鍵幀。
 4. **衍生數值由 Server 回傳**：分析回應擴充 `metrics`（契約 MINOR 1.1.0）；改身高／機位／步頻與舊格式匯入經新的重算端點。
 5. **即時角度 HUD、即時同步骨架、無影片模擬擷取全部保留**（使用者決定）；代價是角度擷取與閘門進入瀏覽器 bundle，且模擬擷取須改為送出預先烘焙的合成 landmarks（D9）。
-6. **3.2 過渡期**：原樣搬入的 Client 暫時帶舊核心 script，3.2 完成後不部署，3.3 移除。
+6. **3.2 過渡期**：原樣搬入的 Client 暫時帶舊核心 script，3.2 完成後不部署，3.7 移除。
 7. 發現 3 項既有缺陷（第 9 章），只記錄不修。
 
 ## 2. 盤點基準
 
-- 舊專案 `D:\MyWeb\Running form analyzer`，commit **`e29766d`**，工作區乾淨；唯讀。下列行號皆以此 commit 為準，舊專案原樣保留故不應漂移。3.2 起舊 Client 搬入本專案：`index.html`、`js/{config,state,ui,renderer,pose,analyzer}.js`、`styles/main.css` 位於 `public/legacy/`（行號不變）；舊核心四檔位於 `public/legacy/temp-core/`，行號為舊行號 **+3**（檔頭 3 行 `TEMP-CORE`）。
+- 舊專案 `D:\MyWeb\Running form analyzer`，commit **`e29766d`**，工作區乾淨；唯讀。下列行號皆以此 commit 為準，舊專案原樣保留故不應漂移。3.2 起舊 Client 搬入本專案：`index.html`、`js/{config,state,ui,renderer,pose,analyzer}.js`、`styles/main.css` 位於 `public/legacy/`（行號不變）；舊核心四檔位於 `public/legacy/temp-core/`，行號為舊行號 **+3**（檔頭 3 行 `TEMP-CORE`；檔頭寫的「3.3 移除」現指 3.7，檔案不得修改故保持原樣）。**3.3 起 `public/legacy/js/{analyzer,state,ui,config}.js` 的行號與 `e29766d` 不再相同**，查新位置請 grep 函式名。
 - 方法：在舊專案 `js/`（排除四個核心檔 `biomechanics.js`、`keyframes.js`、`landmark-extract.js`、`cycle-analysis.js`）與 `index.html` grep 下列名稱：`solveKinematics`、`normalizeCycleKeyframes`、`sampleCycleKeyframes`、`evaluateProfileAngles`、`evaluateProfileCycle`、`getActiveRunnerTiming`、`RUNNER_PROFILES`、`computePersonalizedPhaseTiming`、`computeGctMetrics`、`generatePoseMethodAlignedCycle`、`computeAutoStrideMeters`、`computeStrideForCameraMode`、`parseManualStrideValue`、`calculateOverallRunningScore`、`analyzeCapturedFrames`、`extractAnglesFromLandmarks`、`evaluateCaptureFrame`、`evalCycle`、`cycleKeyframes`。
 - 限制：只靠名稱 grep，經 `this`、字串或動態屬性的間接呼叫可能漏掉（已知例：`evalCycle` 經 `this` 呼叫 `evaluateProfileAngles`，故一併 grep）。
 - 本專案對應：舊四個核心檔 → `lib/core/`（皆 `import "server-only"`）；`validateAnalysisJSON` → `lib/contract/`（非 server-only）。
@@ -174,8 +174,8 @@
 ## 8. 給 3.2／3.3／3.4 的輸入
 
 - **3.2（已完成，見 [規格](../context/features/3-2-client-ui-migration.md)；檔案位置與行號對照見第 2 章）**：落實 D0（舊核心集中單一目錄、檔頭標暫時、完成後不部署）；搬入時保留本文件引用的 `檔案:行號` 對應，或在 Notes 記錄新位置；重新核對 `docs/privacy.md`。
-- **3.3**：落實 D1–D9（含 D8 的 `lib/landmarks/` 共用模組、D9 的合成 landmarks 烘焙）；`lib/player/`、`lib/profiles/`＋烘焙腳本與「烘焙 == 重算」測試、契約 1.1.0、重算端點、移除本地運動學退回路徑與本地合成的模擬擷取（模擬擷取功能本身保留）；驗收「瀏覽器資源與 `.next/static/` 不含核心特有字串」；擴充 `tests/privacy-docs.test.js`（新端點也只 log 固定字串；`lib/player/`、`lib/profiles/` 不 import `lib/core`／`lib/server`）；重新核對 `docs/privacy.md`。建議評估是否把 D1（單一來源整理）與 D6（重算端點）拆成獨立 Feature，避免 3.3 一次變更過多。
-- **3.4**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
+- **3.3（已完成，見 [規格](../context/features/3-3-client-calls-analyze.md)）**：只做影片擷取改呼叫 `/api/analyze`、錯誤提示、過時回應丟棄、刪除 `customCycleFrames`；`lib/` 與 temp-core 不動。**3.4–3.7**（原 3.3 的範圍，依相依順序拆分）：落實 D1–D9（含 D8 的 `lib/landmarks/` 共用模組、D9 的合成 landmarks 烘焙）；`lib/player/`、`lib/profiles/`＋烘焙腳本與「烘焙 == 重算」測試、契約 1.1.0、重算端點、移除本地運動學退回路徑與本地合成的模擬擷取（模擬擷取功能本身保留）；驗收「瀏覽器資源與 `.next/static/` 不含核心特有字串」；擴充 `tests/privacy-docs.test.js`（新端點也只 log 固定字串；`lib/player/`、`lib/profiles/` 不 import `lib/core`／`lib/server`）；重新核對 `docs/privacy.md`。建議評估是否把 D1（單一來源整理）與 D6（重算端點）拆成獨立 Feature，避免 3.3 一次變更過多。
+- **3.8（原 3.4）**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
 
 ## 9. 既有缺陷（只記錄，不在 3.1 修）
 
@@ -183,7 +183,7 @@
 | ---- | ---- | -------- |
 | `getActiveRunnerTiming` 漂移 | 每次呼叫把正規化結果寫回 `summary.phaseTiming`，而 `pullPct` 正規化（`< 68` 時 `min(85, pullPct + 20)`）不冪等：`pullPct < 48` 的匯入檔連續影格會漂移（40 → 60 → 80）。Server 產出的 `pullPct` 落在 72–86，不受影響 | 3.3（D4 唯讀化即消除） |
 | `renderSimVideo` 繞過關鍵幀 | `index.html:2063` 與模擬器畫面不一致 | 3.3（D9） |
-| `customCycleFrames` 死碼 | `js/analyzer.js:177–183` 寫入但無讀取點 | 3.3 刪除 |
+| `customCycleFrames` 死碼 | `js/analyzer.js:177–183` 寫入但無讀取點 | 已於 3.3 刪除 |
 
 ## 10. 未決事項與使用者決定
 

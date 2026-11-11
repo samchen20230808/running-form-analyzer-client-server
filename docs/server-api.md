@@ -1,6 +1,6 @@
 # Server API（`POST /api/analyze`）
 
-> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** Client 尚未呼叫此 API（Epic 3）；部署見 4.1。
+> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** 3.3 起舊 Client 在影片擷取完成時呼叫此 API（不送 `profileName`）；部署見 4.1（須先完成 3.7）。
 
 輸入影片擷取期間的 MediaPipe landmarks，輸出符合 [分析結果 JSON 契約 v1.0.0](analysis-json-contract.md) 的結果（含 `summary`、`metrics`、101 幀 `cycleKeyframes`）。
 

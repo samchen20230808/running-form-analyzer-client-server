@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 
-// 部署防線（3.2–3.3 過渡期）：public/legacy/temp-core/ 含舊核心的公開副本，3.3 移除前不得部署。
-// 3.3 刪除該目錄時，連同這段一併移除。
+// 部署防線（3.2–3.7 過渡期）：public/legacy/temp-core/ 含舊核心的公開副本，3.7 移除前不得部署。
+// 3.7 刪除該目錄時，連同這段一併移除。
 if (process.env.VERCEL && existsSync(new URL("./public/legacy/temp-core", import.meta.url))) {
-  throw new Error("public/legacy/temp-core 仍存在：3.3 移除暫時核心前不得部署");
+  throw new Error("public/legacy/temp-core 仍存在：3.7 移除暫時核心前不得部署");
 }
 
 /** @type {import('next').NextConfig} */

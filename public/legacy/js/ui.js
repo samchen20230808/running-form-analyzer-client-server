@@ -110,6 +110,20 @@ function loadVideoFile(file) {
     alert("請上傳影片檔案 (.mp4, .mov, .webm)");
     return;
   }
+  // 作廢進行中的上傳（回應回來時丟棄），並還原按鈕
+  captureSeq++;
+  if (isCapturingCycle) {
+    // 擷取中途換影片：放棄舊幀，避免兩支影片的資料混在一起
+    isCapturingCycle = false;
+    capturedRawFrames = [];
+    capturedLandmarkFrames = [];
+    if (sourceVideo.src) sourceVideo.playbackRate = savedVideoPlaybackRate;
+    resetCaptureButton();
+  }
+  if (isAnalyzingRemote) {
+    isAnalyzingRemote = false;
+    resetCaptureButton();
+  }
   isUsingSimulatedFeed = false;
   isManualDirection = false;
   livePoseOverride = null;
