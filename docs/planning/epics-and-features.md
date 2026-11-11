@@ -29,7 +29,7 @@
 | Feature | 名稱                       | 狀態    | 說明                                                                          |
 | ------- | -------------------------- | ------- | ----------------------------------------------------------------------------- |
 | 0.1     | 建立 repo 與工作流程       | done    | `git init`、`AGENTS.md`、feature skill、`context/`、路線圖                    |
-| 0.2     | Next.js 骨架與 baseline    | planned | Next.js＋Vitest 骨架、`APP_CONFIG`、baseline fixtures 與逐值比對測試的基礎設施 |
+| 0.2     | Next.js 骨架與 baseline    | done    | Next.js＋Vitest 骨架、`APP_CONFIG`、baseline fixtures 與逐值比對測試的基礎設施 |
 
 ## Epic 1 — 核心演算法 ESM 化（server-only）
 
@@ -67,5 +67,6 @@
 
 - ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：搬入 Client（3.2）後另開 `fix-` 處理。
 - ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：核心合併為單一份時（1.1／1.2）處理，須逐處確認空值行為。
+- ⏳ 1.1 開工前先確認：「觸地 361ms／總分 96」不在 walk summary 原始欄位，須由核心計算得出；要先決定基準值來源與比對方式。建議 1.1 起以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
 - ⏳ 限流改外部儲存（Upstash Redis）：把服務開放給他人之前再評估。
 - ⏳ 骨架時序平滑（One Euro）原型：舊專案 branch `feature-skeleton-smoothing-proto`，擱置。

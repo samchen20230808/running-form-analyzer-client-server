@@ -2,7 +2,7 @@
 
 ## Status
 
-`ready-for-dev`
+`done`
 
 ## Epic
 
@@ -26,7 +26,7 @@ Epic 0 — 專案啟動與工作流程
 ## 待決定事項（開工前確認）
 
 1. 是否提交去識別化的 fixtures？（建議：否，維持 `.temp/` 不提交；CI 之類的需求出現再議。）
-2. 是否加 ESLint？（建議：用 `next lint` 預設設定，不另加規則。）
+2. 是否加 ESLint？（建議：用預設設定，不另加規則。**實作時 Next 16 已無 `next lint`，改用 `eslint .` 加 `eslint-config-next/core-web-vitals`。**）
 3. Next.js 與 React 版本：沿用舊 `server/package.json`（next 16.4.6、react 19.3.1）。
 
 ## Out of scope

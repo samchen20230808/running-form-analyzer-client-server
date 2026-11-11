@@ -2,9 +2,8 @@ node_modules/
 .next/
 out/
 
-.env
-.env*.local
-.env.prod
+.env*
+!.env.example
 
 .vercel/
 .playwright-mcp/
