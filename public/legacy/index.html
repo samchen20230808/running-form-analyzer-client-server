@@ -1,0 +1,2094 @@
+<!doctype html>
+<html lang="zh-TW" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      AI 跑姿生物力學與骨架循環分析系統 V3.29 (高速跑姿防漏格與單腳步頻校正版)
+    </title>
+    <!-- App Icon 與 Favicon 設定 -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏃</text></svg>"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- MediaPipe Pose JS Libraries -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              bgPrimary: "#0B0F19",
+              bgCard: "#111827",
+              bgPanel: "#1E293B",
+              accentCyan: "#06B6D4",
+              accentEmerald: "#10B981",
+              accentAmber: "#F59E0B",
+              accentRose: "#F43F5E",
+              accentPurple: "#C084FC",
+            },
+            fontFamily: {
+              sans: ["Inter", "Noto Sans TC", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="styles/main.css?v=3.1" />
+  </head>
+  <body
+    class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white"
+  >
+    <!-- Top Navigation (包含 App Icon) -->
+    <header
+      class="sticky top-0 z-40 border-b border-slate-800 bg-bgPrimary/95 backdrop-blur-md px-4 lg:px-8 py-3"
+    >
+      <div
+        class="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3"
+      >
+        <!-- App Brand & Icon -->
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-xl bg-slate-900 border border-cyan-500/50 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0"
+          >
+            <svg
+              class="w-6 h-6 text-cyan-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1
+                id="navSystemTitle"
+                class="text-base sm:text-lg font-bold tracking-tight text-white"
+              >
+                AI 跑姿生物力學與骨架循環分析系統
+              </h1>
+              <span
+                id="navVersionBadge"
+                class="px-2 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full"
+                >V3.29 核心升級版</span
+              >
+            </div>
+            <p id="navSubtitle" class="text-xs text-slate-400">
+              右腿主角視角 • 高速防漏格採樣 • 走跑多維智能辨識 • 雙步倍頻重校 • 實體觸地區間 (Stance)
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div
+            class="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1 text-xs gap-1.5"
+          >
+            <span class="text-slate-400">身高:</span>
+            <input
+              type="number"
+              id="runnerHeightInput"
+              value="172"
+              min="130"
+              max="210"
+              onchange="onHeightInputChange()"
+              class="w-13 bg-slate-800 text-emerald-300 font-mono font-bold text-center py-0.5 rounded border border-slate-700 focus:outline-none"
+            />
+            <span class="text-slate-400">cm</span>
+          </div>
+
+          <div
+            class="flex items-center bg-slate-900/90 border border-purple-500/40 rounded-lg px-2.5 py-1 text-xs gap-1.5 shadow-sm"
+          >
+            <span class="text-purple-300 font-medium">步幅:</span>
+            <input
+              type="number"
+              id="customStrideInput"
+              value="0.95"
+              min="0.05"
+              max="2.50"
+              step="0.01"
+              oninput="onManualStrideInput(this.value)"
+              class="w-16 bg-slate-800 text-purple-300 font-mono font-bold text-center py-0.5 rounded border border-purple-500/50 focus:outline-none"
+            />
+            <span class="text-slate-400">m</span>
+            <button
+              id="strideModeBtn"
+              onclick="resetStrideToAuto()"
+              class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-200 border border-purple-500/30 transition"
+            >
+              AI自動
+            </button>
+          </div>
+
+          <label
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 cursor-pointer transition flex items-center gap-1.5"
+          >
+            <span>📂 1. 上傳影片</span>
+            <input
+              type="file"
+              id="navVideoUploadInput"
+              accept="video/*"
+              class="hidden"
+              onchange="handleHeaderVideoUpload(event)"
+            />
+          </label>
+
+          <label
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer transition flex items-center gap-1.5"
+          >
+            <span>📂 2. 載入JSON</span>
+            <input
+              type="file"
+              id="jsonImportInput"
+              accept=".json"
+              class="hidden"
+              onchange="importAnalysisJSON(event)"
+            />
+          </label>
+
+          <div
+            class="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-1 text-xs"
+          >
+            <span class="text-slate-400 px-2 hidden sm:inline">模型：</span>
+            <select
+              id="profileSelect"
+              onchange="switchProfile(this.value)"
+              class="bg-slate-800 text-cyan-300 font-medium px-2.5 py-1 rounded border border-slate-700 focus:outline-none cursor-pointer min-w-[240px] sm:min-w-[300px]"
+            >
+              <option value="hsu_pose_method" selected>
+                ★ 徐國峰教練 (關鍵跑姿黃金標準)
+              </option>
+              <option value="night_track_runner">
+                歷史紀錄：夜間跑道舊影片 (實測對照)
+              </option>
+              <option
+                value="custom_captured"
+                id="customVideoProfileOption"
+                disabled
+              >
+                🎥 實測影片 (尚未上傳)
+              </option>
+            </select>
+          </div>
+
+          <button
+            onclick="exportAnalysisJSON()"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+          >
+            📤 匯出 (.json)
+          </button>
+
+          <button
+            disabled title="報告匯出於 3.4 提供"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500 transition"
+          >
+            📄 匯出報告
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main
+      class="flex-1 max-w-[1440px] w-full mx-auto px-4 lg:px-8 py-5 space-y-5"
+    >
+      <!-- Dashboard Banner -->
+      <div
+        class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center shadow-lg"
+      >
+        <div class="lg:col-span-4 flex items-center gap-3">
+          <div
+            id="heroVersionBadge"
+            class="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shrink-0 font-mono font-bold text-sm"
+          >
+            V3.29
+          </div>
+          <div>
+            <div
+              class="text-xs font-bold text-cyan-300 flex items-center gap-2"
+            >
+              <span id="heroTitle">🎯 高速跑姿動態模糊採樣放寬 ＋ 單腳雙步倍頻自適應校正（告別跑姿誤判慢走）</span>
+            </div>
+            <p id="heroDesc" class="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+              針對手持跟拍與黑色緊身褲等高速動態模糊場景，全面放寬腳踝過嚴遮蔽門檻，引入單腳步頻（Stride Rate）倍頻智慧辨識與多維度走跑特徵判定，徹底杜絕高速跑姿被誤殺為散步！
+            </p>
+          </div>
+        </div>
+
+        <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div
+            class="bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between"
+          >
+            <div>
+              <div class="text-[11px] text-slate-400">實測步頻 (可微調)</div>
+              <div class="flex items-baseline gap-1.5 mt-0.5">
+                <input
+                  type="number"
+                  id="topCadenceInput"
+                  value="180"
+                  min="60"
+                  max="240"
+                  step="1"
+                  oninput="onManualCadenceInput(this.value)"
+                  class="w-16 bg-slate-900 text-xl font-mono font-bold text-cyan-400 border-b border-cyan-500/40 focus:outline-none text-center rounded"
+                />
+                <span class="text-xs font-mono text-slate-400">spm</span>
+              </div>
+            </div>
+            <span
+              id="topCadenceBadge"
+              class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+              >✅ 表現不錯</span
+            >
+          </div>
+
+          <div
+            class="bg-slate-950/90 border border-purple-500/40 rounded-xl px-3.5 py-2 flex flex-col justify-between"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-purple-300 font-semibold"
+                >實測/自訂步幅 (Stride)</span
+              >
+              <span
+                id="strideSourceBadge"
+                class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                >🤖 AI依擺腿推算</span
+              >
+            </div>
+            <div class="flex items-center justify-between gap-2 my-0.5">
+              <div class="flex items-baseline gap-1">
+                <input
+                  type="number"
+                  id="bannerStrideInput"
+                  value="0.95"
+                  min="0.05"
+                  max="2.50"
+                  step="0.01"
+                  oninput="onManualStrideInput(this.value)"
+                  class="w-18 bg-slate-900 text-xl font-mono font-bold text-purple-400 border-b border-purple-500/50 focus:outline-none text-center rounded"
+                />
+                <span class="text-xs font-mono text-slate-400">公尺/步</span>
+              </div>
+              <button
+                onclick="resetStrideToAuto()"
+                class="text-[10px] text-slate-400 hover:text-cyan-300 underline"
+              >
+                重設自動
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between"
+          >
+            <div>
+              <div class="text-[11px] text-slate-400">換算配速 (步頻×步幅)</div>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span
+                  id="topPaceVal"
+                  class="text-xl font-mono font-bold text-emerald-400"
+                  >5'50"</span
+                >
+                <span class="text-xs font-mono text-slate-400">/km</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <span
+                id="topSpeedVal"
+                class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 block"
+                >10.3 km/h</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DUAL WORKSPACE -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <!-- LEFT 6 COLS: 核心一 -->
+        <div
+          id="coreOneCard"
+          class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
+        >
+          <div
+            class="px-4 py-3 border-b border-slate-800 bg-slate-900/70 flex flex-wrap items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-2">
+              <span
+                class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"
+                id="aiStatusDot"
+              ></span>
+              <h2 class="text-sm font-bold text-white">
+                核心一：影片 AI 骨架追蹤 (個人四階段 %)
+              </h2>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button
+                id="nightBoostBtn"
+                onclick="toggleNightBoost()"
+                class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 transition"
+              >
+                🔆 夜間增亮補強: 自動感光中
+              </button>
+              <div
+                class="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-[11px]"
+              >
+                <button
+                  id="dirLeftToRight"
+                  onclick="setRunDirection(1, true)"
+                  class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium"
+                >
+                  左➔右
+                </button>
+                <button
+                  id="dirRightToLeft"
+                  onclick="setRunDirection(-1, true)"
+                  class="px-2 py-0.5 rounded text-slate-400 hover:text-white"
+                >
+                  右➔左
+                </button>
+              </div>
+              <!-- 機位模式切換器 -->
+              <div
+                class="flex items-center bg-slate-950 border border-slate-700 rounded-lg px-2 py-0.5 text-[11px] gap-1"
+              >
+                <span class="text-slate-400">機位:</span>
+                <select
+                  id="cameraModeSelect"
+                  onchange="onCameraModeChange(this.value)"
+                  class="bg-transparent text-cyan-300 font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="auto" selected class="bg-slate-900 text-slate-200">🤖 自動偵測</option>
+                  <option value="static" class="bg-slate-900 text-slate-200">📷 固定機位 (測像素位移)</option>
+                  <option value="tracking" class="bg-slate-900 text-slate-200">🏃 動態跟拍 / 原地跑步機 (依擺腿推算)</option>
+                </select>
+              </div>
+              <label
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 cursor-pointer transition flex items-center gap-1.5"
+              >
+                <span>📂 上傳影片</span>
+                <input
+                  type="file"
+                  id="videoUploadInput"
+                  accept="video/*"
+                  class="hidden"
+                  onchange="handleVideoUpload(event)"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div
+            class="relative flex-1 min-h-[360px] sm:min-h-[420px] bg-slate-950 flex items-center justify-center overflow-hidden cyber-grid transition-all duration-200"
+            id="videoDropZone"
+          >
+            <video
+              id="sourceVideo"
+              class="hidden"
+              playsinline
+              muted
+              loop
+              crossorigin="anonymous"
+            ></video>
+            <canvas id="preprocessCanvas" class="hidden"></canvas>
+            <canvas
+              id="videoOverlayCanvas"
+              width="640"
+              height="400"
+              class="w-full h-full object-contain pointer-events-none"
+            ></canvas>
+
+            <div
+              id="dragHoverBanner"
+              class="hidden absolute inset-4 rounded-2xl border-2 border-dashed border-cyan-400 bg-cyan-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none"
+            >
+              <p class="text-base font-bold text-white">
+                放開滑鼠即可載入跑步影片！
+              </p>
+              <p class="text-xs text-cyan-300 mt-1">
+                支援 MP4 / MOV / WebM 格式
+              </p>
+            </div>
+
+            <div
+              id="videoEmptyOverlay"
+              class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/80 backdrop-blur-xs transition-opacity pointer-events-none"
+            >
+              <div
+                class="w-16 h-16 rounded-2xl bg-cyan-500/10 border-2 border-dashed border-cyan-500/40 flex items-center justify-center mb-3 text-cyan-400 pointer-events-none"
+              >
+                <svg
+                  class="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.75"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-sm font-bold text-white mb-1 pointer-events-none">
+                直接將跑步影片「拖拉 (Drag & Drop)」至此處
+              </h3>
+              <p class="text-xs text-slate-400 max-w-md mb-4 leading-relaxed pointer-events-none">
+                可先用進度條或影格按鈕停在乾淨畫面，點擊擷取時系統會<strong>以當前影格為起點自動 0.25x 慢速掃描</strong
+                >！
+              </p>
+              <div class="flex flex-wrap items-center justify-center gap-2.5">
+                <label
+                  class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 cursor-pointer shadow-lg transition pointer-events-auto"
+                >
+                  📂 選擇影片檔 (.mp4 / .mov)
+                  <input
+                    type="file"
+                    accept="video/*"
+                    class="hidden"
+                    onchange="handleVideoUpload(event)"
+                  />
+                </label>
+                <button
+                  onclick="startSimulatedVideoFeed()"
+                  class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition pointer-events-auto"
+                >
+                  ⚡ 預覽徐國峰標準動作訊號
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="absolute top-3 left-3 bg-slate-900/90 border border-slate-700/80 rounded-lg px-3 py-2 text-[11px] font-mono space-y-1 pointer-events-none"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400">AI 狀態:</span>
+                <span
+                  id="aiEngineStateText"
+                  class="text-emerald-400 font-semibold"
+                  >Heavy 模型待命中</span
+                >
+                <span
+                  id="autoDirBadge"
+                  class="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[10px]"
+                  >方向: 自動</span
+                >
+              </div>
+              <div class="flex items-center gap-3 text-slate-300">
+                <span
+                  >落下前傾:
+                  <strong id="liveVideoTrunk" class="text-cyan-400"
+                    >8.2°</strong
+                  ></span
+                >
+                <span
+                  >右膝角度:
+                  <strong id="liveVideoKnee" class="text-emerald-400"
+                    >76°</strong
+                  ></span
+                >
+                <span
+                  >手肘:
+                  <strong id="liveVideoElbow" class="text-purple-400"
+                    >86°</strong
+                  ></span
+                >
+                <span
+                  >影格:
+                  <strong id="liveFrameCounter" class="text-amber-400"
+                    >#0 (0.00s)</strong
+                  ></span
+                >
+              </div>
+            </div>
+
+            <label
+              class="absolute bottom-3 right-3 bg-slate-900/90 border border-cyan-500/40 rounded-lg px-2.5 py-1.5 text-[11px] text-cyan-300 flex items-center gap-1.5 cursor-pointer shadow-lg"
+            >
+              <input
+                type="checkbox"
+                id="liveSyncToggle"
+                class="accent-cyan-400 rounded"
+                onchange="onLiveSyncToggleChange(this.checked)"
+              />
+              <span>1:1 即時驅動右側骨架</span>
+            </label>
+          </div>
+
+          <div
+            class="p-3.5 bg-slate-900/90 border-t border-slate-800 space-y-2.5"
+          >
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button
+                id="videoPlayBtn"
+                onclick="toggleVideoPlay()"
+                class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-md"
+              >
+                ▶ 播放影片
+              </button>
+              <button
+                onclick="stepVideoFrame(-1)"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono border border-cyan-500/40 transition"
+              >
+                <span>⏮ 上一 Frame</span>
+              </button>
+              <button
+                onclick="stepVideoFrame(1)"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono border border-cyan-500/40 transition"
+              >
+                <span>下一 Frame ⏭</span>
+              </button>
+
+              <input
+                type="range"
+                id="videoSeekSlider"
+                min="0"
+                max="100"
+                value="0"
+                step="0.1"
+                class="flex-1 min-w-[90px]"
+                oninput="seekVideo(this.value)"
+              />
+              <select
+                id="videoRateSelect"
+                onchange="changeVideoRate(this.value)"
+                class="bg-slate-800 text-slate-200 text-xs font-mono px-2 py-1 rounded border border-slate-700"
+              >
+                <option value="0.25">0.25x</option>
+                <option value="0.5" selected>0.5x</option>
+                <option value="1">1.0x</option>
+              </select>
+            </div>
+
+            <div
+              class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80"
+            >
+              <div class="text-[11px] text-slate-400">
+                💡 可先暫停在最佳影格，按下綠色按鈕後即從該點向下擷取 1~2 個完整週期
+              </div>
+              <button
+                id="captureCycleBtn"
+                onclick="triggerCycleExtraction()"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition flex items-center gap-1.5"
+              >
+                <span class="w-2 h-2 rounded-full bg-slate-950"></span>
+                <span>🟢 智慧擷取個人步態 (從當前影格開始)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT 6 COLS: 核心二 -->
+        <div
+          class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
+        >
+          <div
+            class="px-4 py-3 border-b border-slate-800 bg-slate-900/70 flex flex-wrap items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-2">
+              <span
+                class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
+                id="simPlayDot"
+              ></span>
+              <h2 class="text-sm font-bold text-white">
+                核心二：骨架循環比對 (右腿主角視角)
+              </h2>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-wrap text-xs">
+              <span
+                id="activeProfileBadge"
+                class="px-2.5 py-0.5 text-[11px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded max-w-full"
+                >★ 徐國峰教練 (黃金標準)</span
+              >
+              <button
+                id="toggleGhostBtn"
+                onclick="toggleLayer('ghost')"
+                class="px-2.5 py-1 rounded-md font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition"
+              >
+                👻 徐國峰虛線: 開啟
+              </button>
+              <button
+                id="toggleTrailBtn"
+                onclick="toggleLayer('trail')"
+                class="px-2.5 py-1 rounded-md font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 transition"
+              >
+                〰️ 水滴分色軌跡: 開啟
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="relative flex-1 min-h-[360px] sm:min-h-[420px] cyber-grid flex items-center justify-center overflow-hidden"
+          >
+            <canvas
+              id="simCanvas"
+              width="700"
+              height="420"
+              class="w-full h-full object-contain"
+            ></canvas>
+
+            <!-- 左上角圖例框 (四階段經典色) -->
+            <div
+              class="absolute top-2.5 left-2.5 max-w-[calc(55%-0.625rem)] bg-slate-900/90 border border-slate-800/90 rounded-lg px-2.5 py-2 text-[10px] space-y-1 pointer-events-none backdrop-blur-xs shadow-lg"
+            >
+              <div class="flex items-center gap-1.5">
+                <span
+                  class="w-3 h-1 bg-cyan-400 rounded-full inline-block"
+                ></span>
+                <span class="text-cyan-300 font-bold" id="simLegendRunnerName"
+                  >主角：近側右腿 (青色實線 • 水滴軌跡)</span
+                >
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span
+                  class="w-3 h-1 bg-slate-400 rounded-full inline-block"
+                ></span>
+                <span class="text-slate-300"
+                  >對側：遠側左腿 (0%先觸地 ➔ 15%支撐右腿完成4字型)</span
+                >
+              </div>
+              <div
+                class="pt-0.5 border-t border-slate-800 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px]"
+              >
+                <span class="text-slate-400 font-mono">軌跡分段:</span>
+                <span
+                  class="flex items-center gap-1 text-rose-300 font-semibold"
+                  ><i
+                    class="w-2.5 h-1 bg-rose-400 rounded-full inline-block"
+                  ></i
+                  >①0%左腳觸地</span
+                >
+                <span
+                  class="flex items-center gap-1 text-amber-300 font-semibold"
+                  ><i
+                    class="w-2.5 h-1 bg-amber-400 rounded-full inline-block"
+                  ></i
+                  >②關鍵跑姿(4字型頂點)</span
+                >
+                <span class="flex items-center gap-1 text-sky-300 font-semibold"
+                  ><i class="w-2.5 h-1 bg-sky-400 rounded-full inline-block"></i
+                  >③落下(右腿下落+Ground前段)</span
+                >
+                <span
+                  class="flex items-center gap-1 text-purple-300 font-semibold"
+                  ><i
+                    class="w-2.5 h-1 bg-purple-400 rounded-full inline-block"
+                  ></i
+                  >④拉起(Ground後段垂直抽腿)</span
+                >
+              </div>
+            </div>
+
+            <div
+              class="absolute top-2.5 right-2.5 max-w-[calc(45%-0.625rem)] bg-slate-900/85 border border-slate-800/90 rounded-lg px-2.5 py-1.5 text-right pointer-events-none backdrop-blur-xs"
+            >
+              <div
+                class="text-[10px] font-mono uppercase text-slate-400"
+                id="simStateLabel"
+              >
+                循環播放中
+              </div>
+              <div
+                id="simPhaseTitle"
+                class="text-[11px] font-bold text-amber-400"
+              >
+                2. 關鍵跑姿 (右腿4字型 • 15%)
+              </div>
+              <div
+                id="simPctText"
+                class="text-sm font-mono font-bold text-white"
+              >
+                15%
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="p-3.5 bg-slate-900/90 border-t border-slate-800 space-y-2.5"
+          >
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button
+                id="simPlayBtn"
+                onclick="toggleSimPlay()"
+                class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md"
+              >
+                ⏸ 暫停循環
+              </button>
+              <button
+                onclick="stepSimCycle(-2)"
+                class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono border border-cyan-500/40 transition"
+              >
+                ⏮ 上一格
+              </button>
+              <button
+                onclick="stepSimCycle(2)"
+                class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono border border-cyan-500/40 transition"
+              >
+                下一格 ⏭
+              </button>
+
+              <input
+                type="range"
+                id="cycleSlider"
+                min="0"
+                max="100"
+                value="15"
+                step="1"
+                class="flex-1 min-w-[90px]"
+                oninput="manualScrubCycle(this.value)"
+              />
+              <div
+                class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-mono"
+              >
+                <button
+                  onclick="setSimSpeed(0.25)"
+                  id="spd025"
+                  class="px-2 py-0.5 rounded text-slate-400"
+                >
+                  0.25x
+                </button>
+                <button
+                  onclick="setSimSpeed(0.5)"
+                  id="spd050"
+                  class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-semibold"
+                >
+                  0.5x
+                </button>
+                <button
+                  onclick="setSimSpeed(1.0)"
+                  id="spd100"
+                  class="px-2 py-0.5 rounded text-slate-400"
+                >
+                  1.0x
+                </button>
+              </div>
+            </div>
+
+            <!-- 四階段切換按鈕 (①紅 ➔ ②黃 ➔ ③藍 ➔ ④紫) -->
+            <div class="grid grid-cols-4 gap-1.5">
+              <button
+                id="phaseBtn0"
+                onclick="jumpToRunnerPhase('touch')"
+                class="px-2.5 py-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-left transition"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-rose-400"
+                    >1. 開始觸地</span
+                  >
+                  <span
+                    id="btnTouchPctLabel"
+                    class="text-[10px] font-mono text-slate-300"
+                    >0%</span
+                  >
+                </div>
+                <div
+                  id="btnTouchSub"
+                  class="text-[10px] text-slate-300 mt-0.5 truncate"
+                >
+                  左腳觸地/右腿在後預備
+                </div>
+              </button>
+
+              <button
+                id="phaseBtn15"
+                onclick="jumpToRunnerPhase('pose')"
+                class="px-2.5 py-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-amber-500/50 text-left transition phase-btn-active"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-amber-300"
+                    >2. 關鍵跑姿</span
+                  >
+                  <span
+                    id="btnPosePctLabel"
+                    class="text-[10px] font-mono text-amber-400 font-bold"
+                    >15%</span
+                  >
+                </div>
+                <div
+                  id="btnPoseSub"
+                  class="text-[10px] text-slate-200 mt-0.5 truncate"
+                >
+                  🟠右腿4字型(徐:15%)
+                </div>
+              </button>
+
+              <button
+                id="phaseBtn30"
+                onclick="jumpToRunnerPhase('fall')"
+                class="px-2.5 py-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-left transition"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-cyan-400">3. 落下</span>
+                  <span
+                    id="btnFallPctLabel"
+                    class="text-[10px] font-mono text-cyan-300 font-bold"
+                    >30%</span
+                  >
+                </div>
+                <div
+                  id="btnFallSub"
+                  class="text-[10px] text-slate-200 mt-0.5 truncate"
+                >
+                  🔵下落+Ground前段(徐:30%)
+                </div>
+              </button>
+
+              <button
+                id="phaseBtn55"
+                onclick="jumpToRunnerPhase('pull')"
+                class="px-2.5 py-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-left transition"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-purple-400">4. 拉起</span>
+                  <span
+                    id="btnPullPctLabel"
+                    class="text-[10px] font-mono text-purple-300 font-bold"
+                    >75%</span
+                  >
+                </div>
+                <div
+                  id="btnPullSub"
+                  class="text-[10px] text-slate-200 mt-0.5 truncate"
+                >
+                  🟣Ground後段抽腿(徐:75%)
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- OVERALL SCORE + 7 KPIs + PERSONALIZED PHASE TIMING COMPARISON -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div
+          class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3.5"
+        >
+          <div
+            id="overallScoreCard"
+            class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900 border border-emerald-500/40 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-inner"
+          >
+            <div class="flex items-center gap-3.5">
+              <div
+                id="overallScoreCircle"
+                class="w-16 h-16 rounded-2xl bg-emerald-500/15 border-2 border-emerald-400 flex flex-col items-center justify-center shrink-0 shadow-lg shadow-emerald-500/10"
+              >
+                <span
+                  id="overallScoreNum"
+                  class="text-2xl font-mono font-extrabold text-emerald-400 leading-none"
+                  >96</span
+                >
+                <span class="text-[10px] font-mono text-slate-400 mt-0.5"
+                  >/ 100分</span
+                >
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-white"
+                    >🏆 跑姿生物力學綜合總分 (7大指標嚴格加權)</span
+                  >
+                  <span
+                    id="overallGradeBadge"
+                    class="px-2 py-0.5 text-[11px] font-mono font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                    >S級 • 黃金模範</span
+                  >
+                </div>
+                <p id="overallScoreSummary" class="text-xs text-slate-300 mt-1">
+                  7
+                  大核心指標全數達標！具備極佳的重力推進、前掌重心下落地與即時垂直拉腿效率。
+                </p>
+                <div
+                  class="w-full max-w-xs h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"
+                >
+                  <div
+                    id="overallScoreBar"
+                    class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300"
+                    style="width: 96%"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7 大核心生物力學指標面板 -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >1. 落下全身前傾</span
+                >
+                <span
+                  id="kpiTrunkBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiTrunk"
+                  class="text-lg font-mono font-bold text-emerald-400"
+                  >8.2°</span
+                >
+                <span class="text-[10px] font-mono text-slate-400">7°~11°</span>
+              </div>
+              <div
+                id="kpiTrunkNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                全身前傾帶動落下
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >2. 觸地時間 & 膝角</span
+                >
+                <span
+                  id="kpiKneeBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline justify-between gap-1">
+                <div class="flex items-baseline gap-1">
+                  <span
+                    id="kpiGctMs"
+                    class="text-lg font-mono font-bold text-rose-400"
+                    >185ms</span
+                  >
+                  <span
+                    id="kpiGctHsu"
+                    class="text-[10px] font-mono text-slate-400"
+                    >(徐&lt;200)</span
+                  >
+                </div>
+                <div class="flex items-baseline gap-1 text-[11px] font-mono text-slate-300">
+                  <span class="text-slate-400 text-[10px]">初瞬膝</span>
+                  <span
+                    id="kpiKneeTouch"
+                    class="font-bold text-emerald-400"
+                    >155°</span
+                  >
+                </div>
+              </div>
+              <div
+                id="kpiKneeNote"
+                class="text-[10px] text-slate-400 leading-snug flex items-center justify-between"
+              >
+                <span id="kpiKneeDesc">初瞬微彎吸震彈性</span>
+                <span id="kpiGctDiff" class="font-mono text-emerald-400 font-semibold">短觸地</span>
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >3. 關鍵跑姿膝角</span
+                >
+                <span
+                  id="kpiSwingBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiSwingKnee"
+                  class="text-lg font-mono font-bold text-emerald-400"
+                  >76°</span
+                >
+                <span class="text-[10px] font-mono text-slate-400"
+                  >65°~88°</span
+                >
+              </div>
+              <div
+                id="kpiSwingNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                腳跟勾向臀下呈4字
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >4. 前掌落點距重心</span
+                >
+                <span
+                  id="kpiComBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiComOffset"
+                  class="text-lg font-mono font-bold text-emerald-400"
+                  >+3.2 cm</span
+                >
+                <span class="text-[10px] font-mono text-slate-400">+2~7cm</span>
+              </div>
+              <div
+                id="kpiComNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                實體腳尖落於臀下無煞車
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >5. 離地後蹬推展角</span
+                >
+                <span
+                  id="kpiPushBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiPushAngle"
+                  class="text-lg font-mono font-bold text-emerald-400"
+                  >14.0°</span
+                >
+                <span class="text-[10px] font-mono text-slate-400"
+                  >&lt;18°</span
+                >
+              </div>
+              <div
+                id="kpiPushNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                及早拉起，無過度後蹬
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >6. 擺臂手肘夾角</span
+                >
+                <span
+                  id="kpiElbowBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiElbow"
+                  class="text-lg font-mono font-bold text-cyan-400"
+                  >86°</span
+                >
+                <span class="text-[10px] font-mono text-slate-400"
+                  >80°~100°</span
+                >
+              </div>
+              <div
+                id="kpiElbowNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                自然置於腰際平衡
+              </div>
+            </div>
+
+            <div
+              class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between col-span-2 sm:col-span-2"
+            >
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-medium"
+                  >7. 步頻節奏效率</span
+                >
+                <span
+                  id="kpiCadenceMiniBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >✅ 表現不錯</span
+                >
+              </div>
+              <div class="my-1 flex items-baseline gap-1">
+                <span
+                  id="kpiCadenceMini"
+                  class="text-lg font-mono font-bold text-cyan-400"
+                  >180</span
+                >
+                <span class="text-[10px] font-mono text-slate-400"
+                  >標準: 175~190 spm</span
+                >
+              </div>
+              <div
+                id="kpiCadenceMiniNote"
+                class="text-[10px] text-slate-400 leading-snug"
+              >
+                高步頻減少衝擊
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側：右腿步態波形圖 ＋ 個人化階段百分比 vs 徐國峰比對面板 -->
+        <div
+          class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3
+                class="text-xs font-bold uppercase tracking-wider text-slate-300"
+              >
+                右腿四階段時間軸 vs 徐國峰黃金標準
+              </h3>
+              <p class="text-[11px] text-slate-400" id="phaseTimingSummaryText">
+                ①0%開始觸地 ➔ ②右腿關鍵跑姿(15%) ➔ ③右腿落下+Ground前段(30%) ➔
+                ④Ground後段拉起(75%)
+              </p>
+            </div>
+            <div class="flex items-center gap-3 text-[11px]">
+              <span class="flex items-center gap-1 text-emerald-400"
+                ><i class="w-2.5 h-0.5 bg-emerald-400 inline-block"></i>
+                右膝折疊角(②關鍵跑姿達頂點)</span
+              >
+              <span class="flex items-center gap-1 text-sky-400"
+                ><i class="w-2.5 h-0.5 bg-sky-400 inline-block"></i>
+                右大腿前後擺角(③落下轉前伸)</span
+              >
+            </div>
+          </div>
+
+          <div
+            class="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 space-y-2 text-[11px]"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold"
+                >右腿個人階段時間點:</span
+              >
+              <span id="runnerPhaseDistBadges" class="font-mono text-xs"></span>
+            </div>
+            <div
+              class="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex border border-slate-800"
+              id="runnerPhaseBar"
+            ></div>
+            <div
+              class="flex items-center justify-between text-[10px] text-slate-400 font-mono"
+            >
+              <span
+                >★ 徐國峰右腿基準: ①觸地 0% ➔ ②關鍵跑姿 15% ➔ ③落下 30% ➔ ④拉起
+                75%</span
+              >
+              <span
+                id="phaseTimingAdviceBadge"
+                class="text-emerald-400 font-semibold"
+                >✅ 階段節奏同步</span
+              >
+            </div>
+
+            <!-- ★ 新增：實體著地期 (Stance) vs 騰空飛行期 (Flight) 狀態條與 GCT 比對 -->
+            <div class="pt-2 border-t border-slate-800/80 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                  <span>👟 腳掌著地區間 (Stance) vs 🕊️ 騰空期 (Flight):</span>
+                  <span
+                    id="gctRangeBadge"
+                    class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                    >0% ~ 35% 觸地</span
+                  >
+                </span>
+                <span id="gctCompareBadge" class="font-mono text-xs"></span>
+              </div>
+              <div
+                class="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex border border-slate-800"
+                id="contactFlightBar"
+              ></div>
+              <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <span id="gctDetailText">⏱️ 觸地時間: 185 ms (徐國峰基準: ~185 ms)</span>
+                <span id="gctStatusText" class="text-emerald-400 font-semibold">✅ 輕觸即拉</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="relative flex-1 min-h-[145px] w-full bg-slate-950/70 rounded-xl border border-slate-800/80 p-2"
+          >
+            <canvas
+              id="waveCanvas"
+              width="720"
+              height="150"
+              class="w-full h-full"
+            ></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAGNOSTIC CARDS -->
+      <section class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-3">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <span>🩺 右腿四階段百分比診斷 ＋ 7大核心指標深度診斷卡</span>
+            </h2>
+            <span
+              id="diagSourceBadge"
+              class="text-xs font-mono px-2.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+              >當前檢視：★ 徐國峰教練 (黃金標準)</span
+            >
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-slate-400 text-[11px] font-medium">燈號圖例：</span>
+            <span
+              class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold"
+              >✅ 表現不錯</span
+            >
+            <span
+              class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold"
+              >⚠️ 需加強</span
+            >
+            <span
+              class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold"
+              >🚨 嚴重警示</span
+            >
+          </div>
+        </div>
+
+        <div
+          id="diagnosticCardsContainer"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-2.5"
+        >
+          <!-- Populated dynamically by JS -->
+        </div>
+      </section>
+    </main>
+
+    <footer
+      class="border-t border-slate-800/80 bg-slate-950/60 py-4 px-4 lg:px-8 mt-6 text-xs text-slate-400"
+    >
+      <div
+        class="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-2 font-mono"
+      >
+        <div id="footerVersionText">
+          AI 跑姿生物力學與骨架循環分析系統 V3.29 • 高速跑姿防漏格與單腳步頻校正版
+        </div>
+        <div>2026 Running Biomechanics Lab</div>
+      </div>
+    </footer>
+
+    <!-- Core Application Script -->
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/pose.js"></script>
+    <script src="temp-core/biomechanics.js"></script><!-- 暫時：3.3 移除 -->
+    <script src="temp-core/keyframes.js"></script><!-- 暫時：3.3 移除 -->
+    <script src="temp-core/landmark-extract.js"></script><!-- 暫時：3.3 移除 -->
+    <script src="temp-core/cycle-analysis.js"></script><!-- 暫時：3.3 移除 -->
+    <script src="js/analyzer.js"></script>
+    <!-- report.js：3.4 搬入 -->
+    <script>
+
+      function onCameraModeChange(val) {
+        selectedCameraMode = val;
+        // 如果使用者在分析完成後切換機位模式，立即重新計算步幅與配速，不用重新擷取！
+        const profile = RUNNER_PROFILES[activeProfileKey];
+        if (profile && profile.summary) {
+          recalculateStrideForCameraMode(profile.summary);
+          updateTelemetryAndDiagnostics();
+          drawSimulator();
+          drawWaveform();
+        }
+      }
+
+
+      function recalculateStrideForCameraMode(s) {
+        const heightCm =
+          parseFloat(document.getElementById("runnerHeightInput").value) || 172;
+
+        const profile = RUNNER_PROFILES[activeProfileKey];
+        const curCadence = profile?.cadence || 180;
+
+        const result = computeStrideForCameraMode(
+          s,
+          selectedCameraMode,
+          heightCm,
+          curCadence,
+        );
+
+        // 確保靜態像素測量值永久保存，避免切換模式時被抹除
+        if (
+          typeof s._measuredPixelStride !== "number" &&
+          typeof result.pixelVal === "number"
+        ) {
+          s._measuredPixelStride = result.pixelVal;
+        }
+        s.strideMeters = result.strideMeters;
+        s.measuredStrideMeters = result.measuredStrideMeters;
+        strideModeText = result.strideModeText;
+        isManualStride = false;
+        manualStrideValue = s.strideMeters;
+        const finalStride = Number(s.strideMeters || 0.95).toFixed(2);
+        const customEl = document.getElementById("customStrideInput");
+        if (customEl) customEl.value = finalStride;
+        const bannerEl = document.getElementById("bannerStrideInput");
+        if (bannerEl) bannerEl.value = finalStride;
+        updateStrideModeUI();
+      }
+
+
+      function onManualStrideInput(val) {
+        const stride = parseManualStrideValue(val);
+        if (stride === null) return;
+        isManualStride = true;
+        manualStrideValue = stride;
+        RUNNER_PROFILES[activeProfileKey].summary.strideMeters =
+          manualStrideValue;
+        document.getElementById("customStrideInput").value = manualStrideValue;
+        document.getElementById("bannerStrideInput").value = manualStrideValue;
+        updateStrideModeUI();
+        updateTelemetryAndDiagnostics();
+        drawSimulator();
+        drawWaveform();
+      }
+
+      function resetStrideToAuto() {
+        isManualStride = false;
+        const profile = RUNNER_PROFILES[activeProfileKey];
+        if (profile && profile.summary) {
+          recalculateStrideForCameraMode(profile.summary);
+        }
+        updateTelemetryAndDiagnostics();
+        drawSimulator();
+        drawWaveform();
+      }
+
+      function onHeightInputChange() {
+        if (!isManualStride) {
+          const profile = RUNNER_PROFILES[activeProfileKey];
+          if (profile && profile.summary) {
+            recalculateStrideForCameraMode(profile.summary);
+          }
+        }
+        updateTelemetryAndDiagnostics();
+        drawSimulator();
+        drawWaveform();
+      }
+
+      function onManualCadenceInput(val) {
+        const parsed = parseInt(val, 10);
+        if (isNaN(parsed) || parsed < 100 || parsed > 240) return;
+        const profile = RUNNER_PROFILES[activeProfileKey];
+        profile.cadence = parsed;
+        updateTelemetryAndDiagnostics();
+      }
+
+      function updateStrideModeUI() {
+        const badge = document.getElementById("strideSourceBadge");
+        const modeBtn = document.getElementById("strideModeBtn");
+        if (isManualStride) {
+          badge.textContent = "✍️ 手動自訂步幅";
+          badge.className =
+            "text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold";
+          modeBtn.textContent = "改回AI自動";
+        } else {
+          badge.textContent = strideModeText;
+          badge.className =
+            "text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30";
+          modeBtn.textContent = "AI自動中";
+        }
+      }
+
+
+      function updatePhaseTimingUI(timing, gctMetrics) {
+        document.getElementById("btnTouchPctLabel").textContent =
+          `${timing.touchPct}%`;
+        document.getElementById("btnPosePctLabel").textContent =
+          `${timing.posePct}%`;
+        document.getElementById("btnFallPctLabel").textContent =
+          `${timing.fallPct}%`;
+        document.getElementById("btnPullPctLabel").textContent =
+          `${timing.pullPct}%`;
+
+        const poseDiff = timing.posePct - 15;
+        const fallDiff = timing.fallPct - 30;
+        const pullDiff = timing.pullPct - 75;
+
+        document.getElementById("btnPoseSub").textContent =
+          poseDiff === 0
+            ? "🟠右腿4字型(徐:15%)"
+            : `🟠個人:${timing.posePct}% (比徐${poseDiff > 0 ? "晚+" + poseDiff : "早" + poseDiff}%)`;
+        document.getElementById("btnFallSub").textContent =
+          fallDiff === 0
+            ? "🔵下落+Ground前段(徐:30%)"
+            : `🔵個人:${timing.fallPct}% (比徐${fallDiff > 0 ? "晚+" + fallDiff : "早" + fallDiff}%)`;
+        document.getElementById("btnPullSub").textContent =
+          pullDiff === 0
+            ? "🟣Ground後段抽腿(徐:75%)"
+            : `🟣個人:${timing.pullPct}% (比徐${pullDiff > 0 ? "晚+" + pullDiff : "早" + pullDiff}%)`;
+
+        const badgesEl = document.getElementById("runnerPhaseDistBadges");
+        badgesEl.innerHTML = `
+        <span class="text-rose-400 mr-2">①觸地 ${timing.touchPct}%</span>
+        <span class="text-amber-400 mr-2">②右腿Pose ${timing.posePct}% ${poseDiff > 2 ? `(⚠️晚+${poseDiff}%)` : ""}</span>
+        <span class="text-sky-400 mr-2">③落下 ${timing.fallPct}% ${fallDiff > 3 ? `(⚠️晚+${fallDiff}%)` : ""}</span>
+        <span class="text-purple-400">④拉起 ${timing.pullPct}% ${pullDiff > 3 ? `(⚠️晚+${pullDiff}%)` : ""}</span>
+      `;
+
+        const w1 = timing.posePct;
+        const w2 = Math.max(8, timing.fallPct - timing.posePct);
+        const w3 = Math.max(15, 64 - timing.fallPct);
+        const w4 = 36;
+
+        document.getElementById("runnerPhaseBar").innerHTML = `
+        <div style="width:${w1}%" class="bg-rose-500/80 h-full" title="①左腳觸地・右腿後擺 0%~${timing.posePct}%"></div>
+        <div style="width:${w2}%" class="bg-amber-500/90 h-full" title="②右腿關鍵跑姿(4字型) ${timing.posePct}%~${timing.fallPct}%"></div>
+        <div style="width:${w3}%" class="bg-sky-500/90 h-full" title="③右腿下落與Ground前半段支點推進 ${timing.fallPct}%~64%"></div>
+        <div style="width:${w4}%" class="bg-purple-500/90 h-full" title="④Ground後半段跨過支點垂直抽腿 64%~100% (峰值${timing.pullPct}%)"></div>
+      `;
+
+        const adviceEl = document.getElementById("phaseTimingAdviceBadge");
+        if (poseDiff <= 2 && fallDiff <= 3 && pullDiff <= 3) {
+          adviceEl.textContent = "✅ 右腿四階段節奏與徐國峰黃金標準同步";
+          adviceEl.className = "text-emerald-400 font-semibold";
+        } else {
+          const delays = [];
+          if (poseDiff > 2) delays.push(`右腿Pose延後+${poseDiff}%`);
+          if (fallDiff > 3) delays.push(`落下延後+${fallDiff}%`);
+          if (pullDiff > 3) delays.push(`拉起延後+${pullDiff}%`);
+          adviceEl.textContent = `⚠️ ${delays.join(" / ")}`;
+          adviceEl.className = "text-amber-400 font-semibold";
+        }
+
+        // ★ 著地期 (Stance) vs 騰空期 (Flight) 狀態條與 GCT 比對更新
+        const activeProfile =
+          RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
+        const gct =
+          gctMetrics ||
+          computeGctMetrics(activeProfile.summary, activeProfile.cadence);
+
+        const gctRangeBadge = document.getElementById("gctRangeBadge");
+        if (gctRangeBadge) {
+          gctRangeBadge.textContent = `單步著地: 0%~${gct.stancePct}% (${gct.stancePct}%)`;
+        }
+        const gctCompareBadge = document.getElementById("gctCompareBadge");
+        if (gctCompareBadge) {
+          gctCompareBadge.innerHTML = gct.skipHsuCompare
+            ? '<span class="text-purple-300 font-semibold">🚶 行走步態不套用徐標準比對</span>'
+            : gct.diffMs === 0
+              ? '<span class="text-emerald-400 font-semibold">⚡ 與徐標準一致</span>'
+              : gct.diffMs > 0
+                ? `<span class="text-rose-400 font-semibold">⚠️ 觸地比徐多 +${gct.diffMs}ms</span>`
+                : `<span class="text-emerald-400 font-semibold">⚡ 比徐更短 ${Math.abs(gct.diffMs)}ms</span>`;
+        }
+        const contactFlightBar = document.getElementById("contactFlightBar");
+        if (contactFlightBar) {
+          contactFlightBar.innerHTML = `
+          <div style="width:${gct.stancePct}%" class="bg-rose-500 h-full flex items-center justify-center text-[8px] font-bold text-white overflow-hidden shadow-sm" title="左腳觸地 ${gct.gctMs}ms (0%~${gct.stancePct}%)">左著地 ${gct.gctMs}ms</div>
+          <div style="width:${50 - gct.stancePct}%" class="bg-sky-500/80 h-full flex items-center justify-center text-[8px] font-bold text-white overflow-hidden shadow-sm" title="${gct.flightLabel || `雙腳騰空 ${gct.flightMs}ms`} (${gct.stancePct}%~50%)">${gct.flightLabel || `騰空 ${gct.flightMs}ms`}</div>
+          <div style="width:${gct.stancePct}%" class="bg-rose-500/80 h-full flex items-center justify-center text-[8px] font-bold text-white overflow-hidden shadow-sm" title="右腳觸地 ${gct.gctMs}ms (50%~${50 + gct.stancePct}%)">右著地 ${gct.gctMs}ms</div>
+          <div style="width:${50 - gct.stancePct}%" class="bg-sky-500/60 h-full flex items-center justify-center text-[8px] font-bold text-white overflow-hidden shadow-sm" title="${gct.flightLabel || `雙腳騰空 ${gct.flightMs}ms`} (${50 + gct.stancePct}%~100%)">${gct.flightLabel || `騰空 ${gct.flightMs}ms`}</div>
+        `;
+        }
+        const gctDetailText = document.getElementById("gctDetailText");
+        if (gctDetailText) {
+          gctDetailText.textContent = `⏱️ 個人觸地: ${gct.gctMs} ms / 騰空: ${gct.flightMs} ms (徐國峰基準: ~${gct.hsuGctMs} ms)`;
+        }
+        const gctStatusText = document.getElementById("gctStatusText");
+        if (gctStatusText) {
+          gctStatusText.textContent = gct.ratingText;
+          gctStatusText.className = `${gct.ratingColor} font-semibold`;
+        }
+      }
+
+      function updateTelemetryAndDiagnostics() {
+        const profile =
+          RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
+        const s = profile.summary;
+        const cadence = profile.cadence || 180;
+        s.phaseTiming = computePersonalizedPhaseTiming(s, cadence);
+        const timing = s.phaseTiming;
+        const gct = computeGctMetrics(s, cadence);
+
+        const heightCm =
+          parseFloat(document.getElementById("runnerHeightInput").value) || 172;
+
+        document.getElementById("activeProfileBadge").textContent =
+          profile.name;
+        document.getElementById("diagSourceBadge").textContent =
+          `當前檢視：${profile.name}`;
+        document.getElementById("topCadenceInput").value = cadence;
+
+        updatePhaseTimingUI(timing, gct);
+
+        let strideMeters;
+        if (isManualStride) {
+          strideMeters = manualStrideValue;
+        } else {
+          strideMeters =
+            typeof s.measuredStrideMeters === "number" && s.measuredStrideMeters > 0
+              ? s.measuredStrideMeters
+              : computeAutoStrideMeters(s, heightCm, cadence);
+          s.strideMeters = strideMeters;
+          document.getElementById("customStrideInput").value =
+            strideMeters.toFixed(2);
+          document.getElementById("bannerStrideInput").value =
+            strideMeters.toFixed(2);
+        }
+
+        const speedMetersPerMin = Math.max(20, cadence * strideMeters);
+        const speedKmh = (speedMetersPerMin * 60) / 1000;
+        const paceMinPerKm = 1000 / speedMetersPerMin;
+        const paceMin = Math.floor(paceMinPerKm);
+        const paceSec = Math.round((paceMinPerKm - paceMin) * 60);
+        const formattedPace = `${paceMin}'${paceSec < 10 ? "0" : ""}${paceSec}"`;
+
+        const isBiomechanicalRunner =
+          (s.avgElbow != null && s.avgElbow <= 100) &&
+          ((s.hipRomDeg || 38) >= 36);
+        const isWalk = cadence < 135 && !isBiomechanicalRunner;
+        const isTrunkGood =
+          typeof s.trunkAngle === "number"
+            ? isWalk
+              ? s.trunkAngle <= 6.0
+              : s.trunkAngle >= 6.5 && s.trunkAngle <= 12.0
+            : true;
+        const isKneeGood =
+          typeof s.touchdownKnee === "number"
+            ? isWalk
+              ? s.touchdownKnee >= 155
+              : s.touchdownKnee <= 158
+            : true;
+        const isSwingGood =
+          typeof s.minSwingKnee === "number"
+            ? isWalk
+              ? s.minSwingKnee >= 115
+              : s.minSwingKnee <= 88
+            : true;
+        const isComGood =
+          typeof s.comOffsetCm === "number" ? s.comOffsetCm <= 7.0 : true;
+        const pushExt =
+          typeof s.pushOffExtensionDeg === "number"
+            ? s.pushOffExtensionDeg
+            : 14.0;
+        const isPushGood = isWalk || pushExt <= 18.0;
+        const isElbowGood =
+          typeof s.avgElbow === "number"
+            ? isWalk
+              ? s.avgElbow >= 105
+              : s.avgElbow >= 76 && s.avgElbow <= 105
+            : true;
+        const isCadenceGood = isWalk || cadence >= 175;
+
+        const totalScore = calculateOverallRunningScore(s, cadence);
+        document.getElementById("overallScoreNum").textContent = totalScore;
+        document.getElementById("overallScoreBar").style.width =
+          `${totalScore}%`;
+
+        const weakItems = [];
+        if (!isComGood && typeof s.comOffsetCm === "number")
+          weakItems.push(`前腳尖跨步煞車(+${s.comOffsetCm.toFixed(1)}cm)`);
+        if (!isWalk && !isPushGood)
+          weakItems.push(`主動後蹬推地(${pushExt.toFixed(1)}°)`);
+        if (!isKneeGood && typeof s.touchdownKnee === "number") {
+          weakItems.push(
+            isWalk
+              ? `支撐腳微曲蹲行(${Math.round(s.touchdownKnee)}°)`
+              : `觸地瞬間腿伸過直(${Math.round(s.touchdownKnee)}°)`,
+          );
+        }
+        if (!isTrunkGood && typeof s.trunkAngle === "number") {
+          if (s.trunkAngle > (isWalk ? 6.0 : 12.0)) {
+            weakItems.push(`前傾過大/折腰(${s.trunkAngle.toFixed(1)}°)`);
+          } else if (!isWalk) {
+            weakItems.push(`前傾不足(${s.trunkAngle.toFixed(1)}°)`);
+          }
+        }
+        if (!isWalk && !isSwingGood && typeof s.minSwingKnee === "number")
+          weakItems.push(`右腿折疊偏低(${Math.round(s.minSwingKnee)}°)`);
+        if (!isWalk && !isCadenceGood) weakItems.push("步頻偏慢");
+
+        const gradeBadgeEl = document.getElementById("overallGradeBadge");
+        const scoreSummaryEl = document.getElementById("overallScoreSummary");
+        if (totalScore >= 88) {
+          gradeBadgeEl.textContent =
+            totalScore >= 94
+              ? "S級 • 黃金模範"
+              : isWalk
+                ? "A級 • 良好健走步態"
+                : "A級 • 高效跑姿";
+          scoreSummaryEl.textContent =
+            weakItems.length === 0
+              ? isWalk
+                ? "健走步態極為優異！軀幹挺直、雙腿鐘擺交替支撐平順、無多餘衝擊制動。"
+                : "7 大核心指標全數達標！具備極佳的重力前傾推進、前掌重心下落地與即時垂直拉腿效率。"
+              : `整體步態極佳！僅「${weakItems.join("、")}」可再微調。`;
+        } else if (totalScore >= 70) {
+          gradeBadgeEl.textContent = isWalk
+            ? "B級 • 健走平順"
+            : "B級 • 尚有加強空間";
+          scoreSummaryEl.textContent = `偵測到調整項目：【${weakItems.join("、")}】。`;
+        } else {
+          // 依實際弱項組合標籤，避免前傾不足時仍顯示「過度前傾」
+          const gradeIssues = [];
+          if (!isComGood || !isKneeGood) gradeIssues.push("存在明顯制動");
+          if (!isTrunkGood && typeof s.trunkAngle === "number") {
+            if (s.trunkAngle > (isWalk ? 6.0 : 12.0)) gradeIssues.push("過度前傾");
+            else if (!isWalk) gradeIssues.push("前傾不足");
+          }
+          if (!isWalk && !isSwingGood) gradeIssues.push("擺腿折疊不足");
+          if (!isWalk && !isCadenceGood) gradeIssues.push("步頻偏慢");
+          gradeBadgeEl.textContent = `C級 • ${gradeIssues.length ? gradeIssues.slice(0, 2).join("、") : "多項指標待加強"}`;
+          scoreSummaryEl.textContent = `步態診斷點出項目：【${weakItems.join("、")}】。`;
+        }
+
+        let cadenceBadgeText = "⚠️ 建議 175+";
+        let cadenceBadgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+        if (cadence >= 175 && cadence <= 195) {
+          cadenceBadgeText = "✅ 最佳高步頻";
+          cadenceBadgeClass = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+        } else if (cadence > 195) {
+          cadenceBadgeText = "⚡ 衝刺超高頻";
+          cadenceBadgeClass = "bg-cyan-500/20 text-cyan-300 border-cyan-500/40";
+        } else if (cadence >= 135) {
+          cadenceBadgeText = "🏃 慢跑/超慢跑";
+          cadenceBadgeClass = "bg-sky-500/20 text-sky-300 border-sky-500/40";
+        } else {
+          cadenceBadgeText = "🚶 散步/健走步態";
+          cadenceBadgeClass = "bg-purple-500/20 text-purple-300 border-purple-500/40";
+        }
+        const topCadBadgeEl = document.getElementById("topCadenceBadge");
+        if (topCadBadgeEl) {
+          topCadBadgeEl.textContent = cadenceBadgeText;
+          topCadBadgeEl.className = `text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${cadenceBadgeClass}`;
+        }
+        document.getElementById("topPaceVal").textContent = formattedPace;
+        document.getElementById("topSpeedVal").textContent =
+          `${speedKmh.toFixed(1)} km/h`;
+
+        const setKpiStyle = (
+          valId,
+          badgeId,
+          noteId,
+          valText,
+          isGood,
+          goodLabel,
+          badLabel,
+          goodNote,
+          badNote,
+          isSevere = false,
+        ) => {
+          document.getElementById(valId).textContent = valText;
+          document.getElementById(valId).className =
+            `text-lg font-mono font-bold ${isGood ? "text-emerald-400" : isSevere ? "text-rose-400" : "text-amber-400"}`;
+          const badge = document.getElementById(badgeId);
+          badge.textContent = isGood
+            ? `✅ ${goodLabel}`
+            : isSevere
+              ? `🚨 ${badLabel}`
+              : `⚠️ ${badLabel}`;
+          badge.className = `text-[9px] font-mono px-1 py-0.2 rounded border font-semibold ${
+            isGood
+              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+              : isSevere
+                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+          }`;
+          document.getElementById(noteId).textContent = isGood
+            ? goodNote
+            : badNote;
+        };
+
+        const isTrunkTooHigh = s.trunkAngle > 12.0;
+        const trunkBadgeLabel = isTrunkGood
+          ? "表現不錯"
+          : isTrunkTooHigh
+            ? "前傾過大"
+            : "需加強";
+        const trunkNoteText = isTrunkGood
+          ? "前傾推進順暢"
+          : isTrunkTooHigh
+            ? `前傾過大(${s.trunkAngle.toFixed(1)}°)，易折腰彎腰`
+            : `前傾不足致落下延遲至 ${timing.fallPct}%`;
+
+        setKpiStyle(
+          "kpiTrunk",
+          "kpiTrunkBadge",
+          "kpiTrunkNote",
+          `${s.trunkAngle.toFixed(1)}°`,
+          isTrunkGood,
+          "表現不錯",
+          trunkBadgeLabel,
+          "前傾推進順暢",
+          trunkNoteText,
+        );
+
+        // ★ KPI 卡片 2：觸地時間 (GCT in ms) & 初瞬膝角 & 徐國峰標準即時比對
+        const kpiGctMsEl = document.getElementById("kpiGctMs");
+        if (kpiGctMsEl) {
+          kpiGctMsEl.textContent = `${gct.gctMs}ms`;
+          kpiGctMsEl.className = `text-lg font-mono font-bold ${
+            gct.diffMs > 55
+              ? "text-rose-400"
+              : gct.diffMs > 25
+                ? "text-amber-400"
+                : "text-emerald-400"
+          }`;
+        }
+        const kpiGctHsuEl = document.getElementById("kpiGctHsu");
+        if (kpiGctHsuEl) {
+          kpiGctHsuEl.textContent = `(徐~${gct.hsuGctMs})`;
+        }
+        const kpiKneeTouchEl = document.getElementById("kpiKneeTouch");
+        if (kpiKneeTouchEl) {
+          kpiKneeTouchEl.textContent = `${Math.round(s.touchdownKnee)}°`;
+          kpiKneeTouchEl.className = `font-bold ${isKneeGood ? "text-emerald-400" : "text-rose-400"}`;
+        }
+        const kpiGctDiffEl = document.getElementById("kpiGctDiff");
+        if (kpiGctDiffEl) {
+          if (gct.diffMs > 55) {
+            kpiGctDiffEl.textContent = `+${gct.diffMs}ms 滯留`;
+            kpiGctDiffEl.className = "font-mono text-rose-400 font-semibold";
+          } else if (gct.diffMs > 25) {
+            kpiGctDiffEl.textContent = `+${gct.diffMs}ms 拖延`;
+            kpiGctDiffEl.className = "font-mono text-amber-400 font-semibold";
+          } else if (gct.diffMs > 10) {
+            kpiGctDiffEl.textContent = `+${gct.diffMs}ms 略長`;
+            kpiGctDiffEl.className = "font-mono text-amber-300 font-semibold";
+          } else {
+            kpiGctDiffEl.textContent = "短觸地彈性";
+            kpiGctDiffEl.className = "font-mono text-emerald-400 font-semibold";
+          }
+        }
+        const kpiKneeBadgeEl = document.getElementById("kpiKneeBadge");
+        if (kpiKneeBadgeEl) {
+          if (isKneeGood && gct.diffMs <= 25) {
+            kpiKneeBadgeEl.textContent = "✅ 表現不錯";
+            kpiKneeBadgeEl.className =
+              "text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold";
+          } else if (gct.diffMs > 55 || !isKneeGood) {
+            kpiKneeBadgeEl.textContent =
+              gct.diffMs > 55 ? "🚨 觸地過長" : "🚨 腿伸直煞車";
+            kpiKneeBadgeEl.className =
+              "text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold";
+          } else {
+            kpiKneeBadgeEl.textContent = "⚠️ 觸地偏長";
+            kpiKneeBadgeEl.className =
+              "text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold";
+          }
+        }
+        const kpiKneeDescEl = document.getElementById("kpiKneeDesc");
+        if (kpiKneeDescEl) {
+          kpiKneeDescEl.textContent = isKneeGood
+            ? "初瞬微彎吸震彈性"
+            : "初瞬膝直衝擊煞車";
+        }
+
+        setKpiStyle(
+          "kpiSwingKnee",
+          "kpiSwingBadge",
+          "kpiSwingNote",
+          `${Math.round(s.minSwingKnee)}°`,
+          isSwingGood,
+          "表現不錯",
+          "折腿不足",
+          `右腿準時勾出4字型`,
+          `右腿提拉過低延遲`,
+        );
+        setKpiStyle(
+          "kpiComOffset",
+          "kpiComBadge",
+          "kpiComNote",
+          `+${s.comOffsetCm.toFixed(1)} cm`,
+          isComGood,
+          "表現不錯",
+          "跨步煞車",
+          `腳尖落於臀下無煞車`,
+          `前掌超前重心產生制動煞車`,
+          true,
+        );
+        setKpiStyle(
+          "kpiPushAngle",
+          "kpiPushBadge",
+          "kpiPushNote",
+          `${pushExt.toFixed(1)}°`,
+          isPushGood,
+          "表現不錯",
+          "過度後蹬",
+          "及早垂直拉腿",
+          "支撐末期主動向後推蹬",
+          true,
+        );
+        setKpiStyle(
+          "kpiElbow",
+          "kpiElbowBadge",
+          "kpiElbowNote",
+          `${Math.round(s.avgElbow)}°`,
+          isElbowGood,
+          "表現不錯",
+          "持手偏高",
+          "手掌自然置於腰際",
+          `手肘折緊持手偏高`,
+        );
+        setKpiStyle(
+          "kpiCadenceMini",
+          "kpiCadenceMiniBadge",
+          "kpiCadenceMiniNote",
+          `${cadence} spm`,
+          isCadenceGood || cadence < 135,
+          cadence < 135 ? "行走步態" : "表現不錯",
+          "步頻偏低",
+          cadence < 135 ? "散步/健走步態" : "高步頻節奏輕快",
+          "步頻低於 175 spm",
+        );
+
+        const cards = [
+          {
+            phase: `1. 開始觸地 (${timing.touchPct}%)`,
+            jumpPct: timing.touchPct,
+            title: "中足落點與觸地時間：避免前踢跨步",
+            metric: `觸地 ${gct.gctMs}ms (徐~${gct.hsuGctMs}ms) • 落點 +${s.comOffsetCm.toFixed(1)}cm`,
+            statusText:
+              isComGood && gct.diffMs <= 25
+                ? "✅ 表現不錯"
+                : gct.diffMs > 55
+                  ? "🚨 觸地過長煞車"
+                  : "⚠️ 前踢/煞車偏長",
+            theme: isComGood && gct.diffMs <= 25 ? "emerald" : "rose",
+            desc:
+              isComGood && gct.diffMs <= 25
+                ? `中足落點落於重心下方 (+${s.comOffsetCm.toFixed(1)}cm)，觸地時間 ${gct.gctMs}ms 與徐國峰標準高度吻合，輕觸即拉無煞車！`
+                : `【教練深度診斷】：觸地時間達 ${gct.gctMs}ms（徐標準約 ${gct.hsuGctMs}ms，滯留 +${gct.diffMs}ms）！落點超前重心 +${s.comOffsetCm.toFixed(1)}cm，腿直角 ${Math.round(s.touchdownKnee)}°。<br><span class="text-rose-300 font-medium">⚠️ 關鍵問題點：</span>往下踩時小腿往前踢（如馬克B抓地動作），伸直小腿去踩地形成前撐煞車制動！<br><span class="text-cyan-300 font-medium">💡 改善口訣：</span>「收腳垂直落，勿向前伸踢」——大腿垂直提起後放鬆，讓小腿如單擺自然落回臀部正下方，即可大幅縮短觸地時間至 200ms 以內！`,
+          },
+          {
+            phase: "2. 支撐末期推蹬",
+            jumpPct: 62,
+            title: "後蹬腿伸展角：及早垂直拉腿",
+            metric: `大腿後蹬角 ${pushExt.toFixed(1)}° (標準 <18°)`,
+            statusText: isPushGood ? "✅ 表現不錯" : "🚨 嚴重後蹬地",
+            theme: isPushGood ? "emerald" : "rose",
+            desc: isPushGood
+              ? `大腿在離地前及早收腿，避免主動用力後蹬浪費體能。`
+              : `大腿後蹬夾角達 ${pushExt.toFixed(1)}°，有明顯主動向後蹬地動作，易增加小腿阿基里斯腱負擔。`,
+          },
+          {
+            phase: `3. 關鍵跑姿 (${timing.posePct}%)`,
+            jumpPct: timing.posePct,
+            title: "右腿關鍵跑姿：4字型頂點",
+            metric: `發生於 ${timing.posePct}% / 右膝 ${Math.round(s.minSwingKnee)}°`,
+            statusText:
+              isSwingGood && timing.posePct <= 17 ? "✅ 表現不錯" : "⚠️ 需加強",
+            theme: isSwingGood && timing.posePct <= 17 ? "emerald" : "amber",
+            desc:
+              timing.posePct <= 17
+                ? `右腿於 ${timing.posePct}% 準時勾在膝旁呈標準 4 字型。`
+                : `右腿於 ${timing.posePct}% 才進入跑姿（比徐國峰 15% 晚），提拉稍慢。`,
+          },
+          {
+            phase: `4. 落下 (${timing.fallPct}%)`,
+            jumpPct: timing.fallPct,
+            title: "重力前傾帶動右腿落下",
+            metric: `前傾 ${s.trunkAngle.toFixed(1)}° (標準7°~11°)`,
+            statusText: isTrunkGood
+              ? "✅ 表現不錯"
+              : s.trunkAngle > 12.0
+                ? "⚠️ 前傾過大"
+                : "⚠️ 需加強",
+            theme: isTrunkGood ? "emerald" : "amber",
+            desc: isTrunkGood
+              ? `全身前傾 ${s.trunkAngle.toFixed(1)}° 順暢運用重力下落。`
+              : s.trunkAngle > 12.0
+                ? `軀幹前傾過大 (${s.trunkAngle.toFixed(1)}°，高於標準 11°)，多為髖部或腰椎過度前彎，易破壞核心穩定並增加下背負擔。`
+                : `軀幹前傾不足 (${s.trunkAngle.toFixed(1)}°)，身體過於直立，無法有效利用重力推進。`,
+          },
+          {
+            phase: `5. 拉起 (${timing.pullPct}%)`,
+            jumpPct: timing.pullPct,
+            title: "Ground後段垂直抽腿拉起",
+            metric: `拉起時機 ${timing.pullPct}% (標準75%)`,
+            statusText:
+              isSwingGood && timing.pullPct <= 78 ? "✅ 表現不錯" : "⚠️ 需加強",
+            theme: isSwingGood && timing.pullPct <= 78 ? "emerald" : "amber",
+            desc: isSwingGood
+              ? `過支點後立即啟動膕繩肌垂直抽腿。`
+              : `拉起延後至 ${timing.pullPct}%，支撐期逗留過長。`,
+          },
+          {
+            phase: "6. 上肢平衡",
+            jumpPct: timing.posePct,
+            title: "手肘夾角與肩部放鬆",
+            metric: `手肘 ${Math.round(s.avgElbow)}°`,
+            statusText: isElbowGood ? "✅ 表現不錯" : "⚠️ 需加強",
+            theme: isElbowGood ? "emerald" : "amber",
+            desc: isElbowGood
+              ? `手臂夾角自然，手掌置於腰際。`
+              : `手肘折太緊，持手過高易聳肩。`,
+          },
+          {
+            phase: "7. 步頻節奏",
+            jumpPct: timing.fallPct,
+            title: cadence < 135 ? "行走步態節奏" : "高步頻減緩地面衝擊",
+            metric: `${cadence} spm / ${formattedPace}`,
+            statusText:
+              cadence < 135
+                ? "🚶 行走步態"
+                : isCadenceGood
+                  ? "✅ 表現不錯"
+                  : "⚠️ 建議175+",
+            theme: cadence < 135 || isCadenceGood ? "emerald" : "amber",
+            desc:
+              cadence < 135
+                ? `當前步頻 ${cadence} spm 屬於健走/漫步節奏，雙腳交替接地支撐，無騰空衝擊。`
+                : isCadenceGood
+                  ? `步頻 ${cadence} spm 符合高效跑姿節奏。`
+                  : `步頻偏低，跑步時提高步頻至 175+ 有助消除跨步。`,
+          },
+        ];
+
+        const badgeClassMap = {
+          emerald: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+          amber: "bg-amber-500/25 text-amber-300 border-amber-500/50",
+          rose: "bg-rose-500/25 text-rose-300 border-rose-500/40",
+        };
+        const metricColorMap = {
+          emerald: "text-emerald-400",
+          amber: "text-amber-400",
+          rose: "text-rose-400",
+        };
+
+        const container = document.getElementById("diagnosticCardsContainer");
+        container.innerHTML = cards
+          .map(
+            (c) => `
+        <div class="bg-bgCard border rounded-2xl p-2.5 flex flex-col justify-between transition-all card-glow-${c.theme}">
+          <div>
+            <div class="flex items-center justify-between gap-1 mb-1">
+              <span class="text-[9px] font-mono text-slate-400">${c.phase}</span>
+              <span class="px-1 py-0.2 text-[9px] font-bold rounded-full border ${badgeClassMap[c.theme]}">${c.statusText}</span>
+            </div>
+            <h3 class="text-[11px] font-bold text-white mb-0.5">${c.title}</h3>
+            <div class="text-xs font-mono font-bold ${metricColorMap[c.theme]} mb-1">${c.metric}</div>
+            <p class="text-[10px] text-slate-300 leading-snug mb-2">${c.desc}</p>
+          </div>
+          <button onclick="jumpToCyclePct(${c.jumpPct})" class="w-full py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-300 text-[10px] font-medium border border-slate-700 transition">
+            🎯 定格檢視
+          </button>
+        </div>
+      `,
+          )
+          .join("");
+      }
+
+      function onLiveSyncToggleChange(checked) {
+        if (!checked) {
+          livePoseOverride = null;
+          drawSimulator();
+        }
+      }
+
+      function startSimulatedVideoFeed() {
+        isUsingSimulatedFeed = !isUsingSimulatedFeed;
+        livePoseOverride = null;
+        sourceVideo.pause();
+        videoCanvas.width = 640;
+        videoCanvas.height = 400;
+        document.getElementById("videoEmptyOverlay").classList.add("hidden");
+        document.getElementById("aiEngineStateText").textContent =
+          isUsingSimulatedFeed ? "預覽徐國峰黃金標準" : "暫停";
+        syncVideoPlayButtonUI();
+
+        function renderSimVideo() {
+          if (!isUsingSimulatedFeed) return;
+          const W = videoCanvas.width;
+          const H = videoCanvas.height;
+          videoCtx.clearRect(0, 0, W, H);
+          videoCtx.fillStyle = "#090D16";
+          videoCtx.fillRect(0, 0, W, H);
+          videoCtx.strokeStyle = "#F8FAFC";
+          videoCtx.lineWidth = 2;
+          videoCtx.beginPath();
+          videoCtx.moveTo(0, 360);
+          videoCtx.lineTo(W, 360);
+          videoCtx.stroke();
+
+          const p = (((cyclePct % 100) + 100) % 100) / 100;
+          const profile =
+            RUNNER_PROFILES[activeProfileKey] ||
+            RUNNER_PROFILES.hsu_pose_method;
+          const a = evaluateProfileCycle(profile, p);
+          const pose = solveKinematics(a, W * 0.48, 360, 0.95);
+
+          drawRunnerSilhouette(videoCtx, pose, profile.appearance);
+          drawSkeletonFigure(videoCtx, pose, {
+            isGhost: false,
+            mainColor: "#10B981",
+            farColor: "#64748B",
+          });
+          document.getElementById("liveVideoTrunk").textContent =
+            `${a.trunk.toFixed(1)}°`;
+          document.getElementById("liveVideoKnee").textContent =
+            `${Math.round(180 - a.rKnee)}°`;
+          document.getElementById("liveVideoElbow").textContent =
+            `${Math.round(180 - a.rElbow)}°`;
+
+          requestAnimationFrame(renderSimVideo);
+        }
+        if (isUsingSimulatedFeed) renderSimVideo();
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        applyAppConfig();
+        updateStrideModeUI();
+        updateTelemetryAndDiagnostics();
+        updateSimPhaseHUD();
+        lastTimestamp = performance.now();
+        requestAnimationFrame(animateLoop);
+      });
+    </script>
+  </body>
+</html>

@@ -10,6 +10,7 @@
 - 本專案是 `D:\MyWeb\Running form analyzer`（以下稱「舊專案」）的後繼：把「靜態 Client＋獨立 Next.js Server」合併成**單一 Next.js 專案、單一 Vercel 部署**。
 - 舊專案作為參考**原樣保留，不修改**。需要時用唯讀方式查閱其程式、`docs/analysis-json-contract.md`、`docs/server-api.md` 與 `context/features/`。
 - 目標：MediaPipe 留在瀏覽器；核心演算法只存在於 server-only 模組，不被打包進瀏覽器；Client 只負責擷取 landmarks、呼叫 `/api/analyze`、渲染結果。
+- 過渡期（3.2 完成至 3.3 完成）：`public/legacy/temp-core/` 為舊核心的暫時副本，不得修改、不得被 `lib/`／`app/` 引用、不得部署（`VERCEL` 環境 build 會失敗）；此期間「核心不進瀏覽器」尚未成立。
 
 ## 專案技術範圍
 
@@ -58,7 +59,7 @@
 
 ## 版本設定
 
-- 版本號、系統名稱等集中於 `APP_CONFIG`；發版時才更新，並同步 `README.md`。
+- 版本號、系統名稱等集中於 `APP_CONFIG`；發版時才更新，並同步 `README.md`。過渡期 `public/legacy/js/config.js` 另有一份 `APP_CONFIG`，發版時須同步（版本號由 `tests/legacy-client.test.js` 把關）。
 
 <!-- BEGIN:nextjs-agent-rules -->
 
