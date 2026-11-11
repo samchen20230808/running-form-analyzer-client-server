@@ -1,11 +1,14 @@
 // POST /api/analyze Route Handler 測試：不需要樣本，永遠執行。
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST, runtime } from "../app/api/analyze/route.js";
 import * as routeModule from "../app/api/analyze/route.js";
-import { ERROR_STATUS, handleAnalyzeHttp } from "../lib/server/http-handler.js";
-import { checkAccess } from "../lib/server/access-control.js";
+import { ERROR_STATUS, RESPONSE_HEADERS, handleAnalyzeHttp } from "../lib/server/http-handler.js";
+import { checkAccess, resetAccessControlState } from "../lib/server/access-control.js";
+import nextConfig from "../next.config.mjs";
 import { ANALYZE_ERRORS, analyzeRequest } from "../lib/server/analyze.js";
 import { LIMITS } from "../lib/server/validate-request.js";
+
+beforeEach(() => resetAccessControlState());
 
 const URL_ = "http://localhost/api/analyze";
 const JSON_H = { "Content-Type": "application/json" };
@@ -266,13 +269,63 @@ describe("回應標頭與對應表", () => {
     );
     for (const r of responses) {
       noLeak(await r.clone().text());
-      expect(r.headers.get("Cache-Control")).toBe("no-store");
+      for (const [k, v] of Object.entries(RESPONSE_HEADERS)) expect(r.headers.get(k), k).toBe(v);
+      expect(r.headers.get("X-Powered-By")).toBeNull();
       expect(r.headers.get("Content-Type")).toMatch(/^application\/json/);
       expect([...r.headers.keys()].some((k) => k.startsWith("access-control-"))).toBe(false);
     }
   });
 
+  it("RESPONSE_HEADERS 內容與順序，且與 next.config.mjs 一致", async () => {
+    expect(RESPONSE_HEADERS).toStrictEqual({
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+      "X-Frame-Options": "DENY",
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    });
+    const rule = (await nextConfig.headers()).find((r) => r.source === "/api/:path*");
+    expect(rule.headers.map((h) => [h.key, h.value])).toEqual(Object.entries(RESPONSE_HEADERS));
+    expect(rule.headers.some((h) => /^access-control-/i.test(h.key))).toBe(false);
+    expect(nextConfig.poweredByHeader).toBe(false);
+  });
+
   it("ERROR_STATUS 與 ANALYZE_ERRORS 一致", () => {
     expect(Object.keys(ERROR_STATUS).sort()).toEqual([...ANALYZE_ERRORS].sort());
+  });
+});
+
+describe("存取控制經 POST", () => {
+  it("跨源 → 403，body 未被讀取", async () => {
+    for (const headers of [
+      { ...JSON_H, "Sec-Fetch-Site": "cross-site" },
+      { ...JSON_H, Origin: "https://evil.example" },
+    ]) {
+      const res = await POST(streamReq(throwingStream(), headers));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toStrictEqual({ error: "forbidden" });
+      expect([...res.headers.keys()].some((k) => k.startsWith("access-control-"))).toBe(false);
+      for (const [k, v] of Object.entries(RESPONSE_HEADERS)) expect(res.headers.get(k), k).toBe(v);
+    }
+  });
+
+  it("同源 → 與無標頭相同結果", async () => {
+    const body = base({ frames: Array.from({ length: 5 }, (_, i) => frame(i / 30)) });
+    const plain = await post(body);
+    const same = await post(body, { ...JSON_H, "Sec-Fetch-Site": "same-origin", Origin: "http://localhost" });
+    expect(same.status).toBe(plain.status);
+    expect(await same.json()).toStrictEqual(await plain.json());
+  });
+
+  it("同一 IP 第 31 次 429，且先於 415", async () => {
+    const h = { ...JSON_H, "x-forwarded-for": "203.0.113.9" };
+    for (let i = 0; i < 30; i++) expect((await post({}, h)).status).toBe(400);
+    const res = await post("{}", { "Content-Type": "text/plain", "x-forwarded-for": "203.0.113.9" });
+    expect(res.status).toBe(429);
+    expect(await res.json()).toStrictEqual({ error: "rate_limited" });
+    const retryAfter = res.headers.get("Retry-After");
+    expect(retryAfter).toMatch(/^[1-9]\d*$/);
+    expect(Number(retryAfter)).toBeLessThanOrEqual(60);
+    for (const [k, v] of Object.entries(RESPONSE_HEADERS)) expect(res.headers.get(k)).toBe(v);
   });
 });
