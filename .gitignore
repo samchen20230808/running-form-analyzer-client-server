@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+
+.env
+.env*.local
+.env.prod
+
+.vercel/
+.playwright-mcp/
+.vscode/
+.temp/
+
+*.log
+coverage/
