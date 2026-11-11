@@ -106,6 +106,13 @@ describe("server-only 與環境隔離", () => {
     expect(serverFiles).toEqual(expect.arrayContaining(["http-handler.js", "access-control.js"]));
   });
 
+  it("access-control.js 只 import server-only，不讀 body／env、不 log、不用 APP_CONFIG", () => {
+    const src = readFileSync(new URL("access-control.js", SERVER_DIR), "utf8");
+    const imports = [...src.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
+    expect(imports).toEqual(["server-only"]);
+    expect(stripComments(src)).not.toMatch(/\.body|\.text\(|\.json\(|\.arrayBuffer\(|console\.|process\.env/);
+  });
+
   it("lib/contract 非 server-only，且只 import ../config.js", () => {
     for (const f of contractFiles) {
       const src = readFileSync(new URL(f, CONTRACT_DIR), "utf8");

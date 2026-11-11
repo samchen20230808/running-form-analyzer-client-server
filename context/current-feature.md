@@ -1,16 +1,27 @@
-# Current Feature
+# Current Feature: 2.1 同源存取模型
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- `lib/server/access-control.js` 實作 Origin／`Sec-Fetch-Site` 檢查（跨源 403 `forbidden`；同源與無標頭放行）
+- 每 IP 記憶體式固定視窗限流：60 秒 30 次，超過 429 `rate_limited`＋`Retry-After`；上限 10,000 筆並清理
+- 其餘安全標頭加入 `RESPONSE_HEADERS` 與 `next.config.mjs headers()`，兩處以測試保證一致；無 CORS
+- `route.js` 不改；`http-handler.js` 只改 `RESPONSE_HEADERS` 與註解；`checkAccess` 介面不變
+- 測試：`access-control.test.js`、擴充 `api-analyze-route.test.js`／`core-modules.test.js`；baseline 不變
+- `docs/server-api.md` 更新，如實記載限流僅盡力而為
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+Spec: `context/features/2-1-same-origin-access-control.md`。分支 `feature-same-origin-access-control`。
+
+Baseline（動工前）：`npm run build` 成功（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 105 通過（walk 103／361ms／96、三份 landmarks 193／176／150）。
+
+驗證（實作後）：`npm run lint` 無問題、`npm run build` 成功（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 149 通過（不帶變數 148＋1 skip）；walk 103／361ms／96、`kf-*` 逐字相同、三份 landmarks 193／176／150 不變。`git diff`：`route.js` 無變更，`http-handler.js` 只改 `RESPONSE_HEADERS`。
+curl（dev，埠 3001）：無標頭／`Origin` 同 host／`Sec-Fetch-Site: same-origin` 皆 200（cadence 來自 landmarks-woman03）；`Origin: https://evil.example`／`Sec-Fetch-Site: cross-site`／`Origin: null` 皆 403 且帶 5 個安全標頭；同一 XFF 第 31 次 429（`Retry-After` 59），換 XFF 為 400；GET 405、OPTIONS 204 皆帶 5 個安全標頭、無 `Access-Control-*`、無 `X-Powered-By`；dev log 無 `analyze failed`、無 IP。首頁與 icon 200，dev log 無錯誤。`.next/static` 無 `rate_limited`／`ACCESS_LIMITS`。
+Playwright：瀏覽器被其他實例占用（`Browser is already in use`），經使用者同意以 curl 驗證首頁與資源（皆 200）；未驗證真實瀏覽器同源 `fetch` 為 400 而非 403，也未檢查 console，待 Epic 3 Client 呼叫 API 時於瀏覽器補驗。Opus review：實作無誤、無繞過；已補強清理測試（mutation 驗證可抓錯）、403 標頭比對、`Retry-After` 斷言；預設 port 誤拒記入規格已知風險。
 
 ## History
 
