@@ -1,16 +1,35 @@
-# Current Feature
+# Current Feature: 3.2 搬入現有 Client UI
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 舊 Client（`index.html`、`styles/main.css`、`js/*.js`）原樣搬入 `public/legacy/`，`/` 以 307 導向 `/legacy/index.html`，行為與舊專案相同。
+- 舊核心四檔集中到 `public/legacy/temp-core/`，檔頭 3 行 `TEMP-CORE` 標示（暫時，3.3 移除）；與 server-only `lib/core/` 不互相引用。
+- 「完成後不部署」防線：`VERCEL` 環境且 temp-core 存在時 build 失敗；文件措辭同步。
+- 新增 `tests/legacy-client.test.js`；如實更新 `docs/privacy.md`、`README.md`、`AGENTS.md`、`docs/client-server-boundary.md`。
+- 不改 `lib/`；baseline 不變（walk 103／361ms／96；landmarks 193／176／150）。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+規格：`context/features/3-2-client-ui-migration.md`（Opus 撰寫）。待決定 1–4 皆採規格預設：A 靜態 `public/legacy/`；`report.js` 不搬、報告按鈕 disabled（3.4）；加 `VERCEL` 部署防線；第三方資源維持 CDN 原樣不釘版。
+
+**Baseline（動手前）**：`REQUIRE_BASELINE=1 npm test` 158 通過；`npm run build` 成功（路由 `/`、`/api/analyze` 等）。舊專案 `e29766d`、工作區乾淨。
+
+**驗證結果**
+- `npm run lint` 無問題；`REQUIRE_BASELINE=1 npm test` 167 通過（不帶變數 166＋1 skip）；`npm run build` 成功（`/` 路由由 redirect 取代，路由表只剩 `/_not-found`、`/api/analyze`、`/icon.svg`）；`git diff -- lib` 為空。
+- 原樣比對（位元組）：`js/{config,state,ui,renderer,pose,analyzer}.js`、`main.css` 與舊檔相同；四支 temp-core 去掉 3 行檔頭後與舊檔相同；`index.html` 僅 217、1329–1332、1334 行有同行替換，行數相同。檔案皆為 CRLF，以 node 寫入避免 Git Bash `sed -i` 吃掉 CR。
+- `VERCEL=1 npm run build` 失敗並顯示「public/legacy/temp-core 仍存在…」。temp-core 特有字串基準：`行走步態 (雙腳交替支撐` 與 `嚴重跨步煞車或身後推蹬` 在 `biomechanics.js` 各 1 次命中，`.next/static` 零命中（供 3.3 對照）。
+- HTTP（dev，port 3100）：`GET /` 307 → `/legacy/index.html`；`/legacy/index.html`、`temp-core/biomechanics.js`、`js/config.js`、`styles/main.css?v=3.1` 皆 200；`/legacy/index.html` 無 API 的 CSP；`/api/analyze` 仍帶 CSP。
+- Playwright（使用者先關閉占用的瀏覽器）：載入 `/` 後 console 0 error、1 warning（Tailwind CDN production 警告，預期）；network 全為 2xx／3xx（含 CDN 與字型）。選影片後 MediaPipe 由 `cdn.jsdelivr.net/npm/@mediapipe/pose/` 載入 `pose_landmark_heavy.tflite`、`pose_web.binarypb`、`pose_solution_packed_assets(.data/_loader.js)`、`pose_solution_simd_wasm_bin(.js/.wasm)`，皆 200。
+- 互動：匯入 walk JSON → 步頻 103 spm、觸地 361ms、總分 96，與基準一致；切 Profile（`hsu_pose_method` 99／183ms／184、`night_track_runner` 35／294ms／166、`custom_captured`、匯入的 json 設定檔）皆有更新；播放／暫停按鈕切換、播放中 canvas 持續變化；選擇 `woman03 - Trim.mp4`（複製到 `.temp/mp4/`，不提交，因 Playwright 只允許專案內檔案）→ 智慧擷取完成、產生 `custom_captured`（36／249ms／192 spm）；拖入影片（對 `#videoDropZone` 派發 `drop`）載入新 blob；匯出 JSON 產生 `schemaVersion 1.0.0` 檔案；匯入後 `json_*` 設定檔可選；報告按鈕 disabled；「預覽徐國峰標準動作訊號」按鈕可點無 error。
+- 未涵蓋／限制：「暫停時 canvas 穩定」未取得乾淨結論（波形等 canvas 本身持續更新，僅確認播放中會變化）；「匯出再匯入數值不變」只驗證匯出檔可產生，未做完整往返比對；`getImageData` 的 Canvas2D warning 來自驗證腳本自己的像素取樣。
+- 規格驗證項目未做或僅部分完成：MediaPipe 解析到的版本與檔案大小未記錄（CDN 未釘版，4.1 前釘版時須實測）；相位跳轉與 `ghost`／`trail` 圖層切換未逐項驗證；預覽徐國峰訊號只確認按鈕可點無 error，未驗證開關狀態；與舊專案 baseline 截圖及並排比對未做；`POST /api/analyze` 本 Feature 未改，只確認 `/api/analyze` 仍帶 CSP，由既有測試覆蓋 5 個標頭。
+- Opus review 結論可 complete，已處理：Notes 補遺漏、邊界文件第 2 章補行號對照、privacy 補第三方 script 與 `VERCEL` 前提／`vercel env pull` 風險、測試改用 regex 並新增「核心字串只在 temp-core」。已知：部署防線依賴 Vercel build 有 `VERCEL`，4.1 前實測；報告按鈕無 disabled 視覺樣式，3.4 處理。
+- 既有缺陷（未修）：行走 HUD 左右腳標示錯誤（`fix-walking-hud-foot-label`，建議 3.3 後）。
+- 對照：temp-core 為凍結副本，不隨 `lib/core/` 同步；過渡期 `APP_CONFIG` 有兩份（`lib/config.js`、`public/legacy/js/config.js`），版本號由測試把關。`.next/static` 零命中不再代表「瀏覽器拿不到核心」——`public/legacy/temp-core/` 會被公開提供。
 
 ## History
 

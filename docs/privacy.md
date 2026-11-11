@@ -4,17 +4,19 @@
 
 ## 1. 摘要
 
-- 影片不離開瀏覽器：由 MediaPipe 在瀏覽器內處理（**設計目標，Epic 3 起**，見第 2 節）。
-- Server 只收 landmarks 等數值（33 個關節點座標、時間與少數設定），**不收影片、影像或音訊**。
+- 影片不離開瀏覽器：由 MediaPipe 在瀏覽器內處理（3.2 起成立；3.2 的 Client **完全不呼叫 API**，見第 2 節）。
+- Server 只收 landmarks 等數值（33 個關節點座標、時間與少數設定），**不收影片、影像或音訊**（`/api/analyze` 的規格；Client 開始上傳要到 3.3）。
 - Server 不儲存請求內容；程式唯一的 log 是非預期例外時的固定字串 `analyze failed`。
 - IP 只在 Server 記憶體中用於限流，不寫入 log、檔案或外部服務。
 - 部署平台（Vercel）本身可能另有 log，不在本程式控制範圍。
 
 ## 2. 目前狀態
 
-Client 尚未搬入（Epic 3）。目前頁面（`/`）只是佔位頁，**不擷取影像、不呼叫 API、不載入第三方資源、不使用 localStorage**（`app/page.js`、`app/layout.js`）。
+3.2 起，`/` 導向 `/legacy/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`、`public/legacy/`）。它**會在瀏覽器擷取影像（MediaPipe）、不呼叫 API、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。
 
-本文件中關於 Client 的描述（影片在瀏覽器內處理、只上傳 landmarks）是設計目標；3.2、3.3 完成時必須重新核對本文件。
+**過渡期（3.2 完成至 3.3 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，整套分析在本機完成；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。「核心只在 Server」要到 3.3 移除暫時核心後才成立。
+
+「只上傳 landmarks」是 3.3 起的行為，3.3 完成時必須重新核對本文件。
 
 ## 3. 上傳的資料
 
@@ -44,6 +46,7 @@ Client 尚未搬入（Epic 3）。目前頁面（`/`）只是佔位頁，**不�
 - 程式唯一的 log：非預期例外（500）時 `console.error("analyze failed")`，固定字串，不帶錯誤物件、stack、IP 或請求內容（`lib/server/http-handler.js`）。
 - 403、429 與各種 4xx **不 log**。
 - Next.js 開發伺服器（`next dev`）自身會在終端機印出請求路徑與狀態碼，這是框架行為；實測不含 body 與 IP（Next 16.4.6）。
+- 舊 Client 的 `console.error`／`warn`／`info`（`public/legacy/js/analyzer.js`）只出現在使用者瀏覽器的 console，不會傳到 Server。
 
 ## 6. IP 位址與限流
 
@@ -59,11 +62,17 @@ Client 尚未搬入（Epic 3）。目前頁面（`/`）只是佔位頁，**不�
 
 ## 8. 第三方資源
 
-目前無。舊專案的 Client 由 `cdn.jsdelivr.net` 載入 MediaPipe、由 Google Fonts 載入字型；若 3.2 沿用，瀏覽器會直接連到這些第三方（對方可見 IP 與 User-Agent），屆時須更新本節或改為自託管。
+3.2 起，舊 Client（`public/legacy/index.html`）會讓瀏覽器直接連到：
+
+- `cdn.tailwindcss.com`（Tailwind Play CDN）
+- `fonts.googleapis.com`、`fonts.gstatic.com`（Inter、JetBrains Mono、Noto Sans TC）
+- `cdn.jsdelivr.net`（`@mediapipe/{camera_utils,control_utils,drawing_utils,pose}` 的 script，以及選影片後由 `locateFile` 抓取的 wasm、`.data`、`.binarypb` 與 heavy 模型）
+
+對方可見使用者的 IP、User-Agent 與本站 origin（頁面未設 `Referrer-Policy`，瀏覽器預設 `strict-origin-when-cross-origin`）。**影片與 landmarks 不會送往這些第三方**：MediaPipe 在本機執行，CDN 只提供程式與模型檔。這些資源**未釘版本**，上游變動會直接改變行為。自託管或釘版留待 4.1 前處理。
 
 ## 9. Cookie 與瀏覽器儲存
 
-目前不使用 cookie、localStorage、sessionStorage、IndexedDB，也沒有追蹤或分析工具。
+舊 Client 不使用 cookie、localStorage、sessionStorage、IndexedDB，也沒有追蹤或分析工具（`tests/legacy-client.test.js` 檢查 `public/legacy/` 不含這些字樣；只檢查本站檔案，第三方 CDN script 的行為不在此保證）。影片以 `blob:` URL 在記憶體播放（`URL.createObjectURL`）、JSON 匯入用 `FileReader` 在本機讀取、匯出為本機下載，皆不離開瀏覽器。
 
 ## 10. 日後可能改變的情況
 
@@ -71,9 +80,10 @@ Client 尚未搬入（Epic 3）。目前頁面（`/`）只是佔位頁，**不�
 
 - 限流改用外部儲存（Upstash Redis，IP 會存到第三方）
 - 加入 Turnstile 或登入
-- Client 搬入（3.2）、Client 開始上傳（3.3）
+- Client 開始上傳（3.3）、新增重算端點（`docs/client-server-boundary.md` D6）
+- 頁面 CSP、第三方資源釘版或自託管
 - 部署（4.1）
 
 ## 11. 文件與程式的一致性
 
-`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。
+`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：暫時核心只在 `public/legacy/temp-core/` 且帶 `TEMP-CORE` 標示、`app/`／`lib/` 不引用它、舊 Client 不使用瀏覽器儲存也不呼叫 API、`VERCEL` 環境的部署防線。`next.config.mjs` 在 build 時讀 `VERCEL` 作為部署防線，不屬 Server 執行期。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。

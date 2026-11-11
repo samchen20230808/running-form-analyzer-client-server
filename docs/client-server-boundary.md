@@ -17,7 +17,7 @@
 
 ## 2. 盤點基準
 
-- 舊專案 `D:\MyWeb\Running form analyzer`，commit **`e29766d`**，工作區乾淨；唯讀。下列行號皆以此 commit 為準，舊專案原樣保留故不應漂移。
+- 舊專案 `D:\MyWeb\Running form analyzer`，commit **`e29766d`**，工作區乾淨；唯讀。下列行號皆以此 commit 為準，舊專案原樣保留故不應漂移。3.2 起舊 Client 搬入本專案：`index.html`、`js/{config,state,ui,renderer,pose,analyzer}.js`、`styles/main.css` 位於 `public/legacy/`（行號不變）；舊核心四檔位於 `public/legacy/temp-core/`，行號為舊行號 **+3**（檔頭 3 行 `TEMP-CORE`）。
 - 方法：在舊專案 `js/`（排除四個核心檔 `biomechanics.js`、`keyframes.js`、`landmark-extract.js`、`cycle-analysis.js`）與 `index.html` grep 下列名稱：`solveKinematics`、`normalizeCycleKeyframes`、`sampleCycleKeyframes`、`evaluateProfileAngles`、`evaluateProfileCycle`、`getActiveRunnerTiming`、`RUNNER_PROFILES`、`computePersonalizedPhaseTiming`、`computeGctMetrics`、`generatePoseMethodAlignedCycle`、`computeAutoStrideMeters`、`computeStrideForCameraMode`、`parseManualStrideValue`、`calculateOverallRunningScore`、`analyzeCapturedFrames`、`extractAnglesFromLandmarks`、`evaluateCaptureFrame`、`evalCycle`、`cycleKeyframes`。
 - 限制：只靠名稱 grep，經 `this`、字串或動態屬性的間接呼叫可能漏掉（已知例：`evalCycle` 經 `this` 呼叫 `evaluateProfileAngles`，故一併 grep）。
 - 本專案對應：舊四個核心檔 → `lib/core/`（皆 `import "server-only"`）；`validateAnalysisJSON` → `lib/contract/`（非 server-only）。
@@ -173,7 +173,7 @@
 
 ## 8. 給 3.2／3.3／3.4 的輸入
 
-- **3.2**：落實 D0（舊核心集中單一目錄、檔頭標暫時、完成後不部署）；搬入時保留本文件引用的 `檔案:行號` 對應，或在 Notes 記錄新位置；重新核對 `docs/privacy.md`。
+- **3.2（已完成，見 [規格](../context/features/3-2-client-ui-migration.md)；檔案位置與行號對照見第 2 章）**：落實 D0（舊核心集中單一目錄、檔頭標暫時、完成後不部署）；搬入時保留本文件引用的 `檔案:行號` 對應，或在 Notes 記錄新位置；重新核對 `docs/privacy.md`。
 - **3.3**：落實 D1–D9（含 D8 的 `lib/landmarks/` 共用模組、D9 的合成 landmarks 烘焙）；`lib/player/`、`lib/profiles/`＋烘焙腳本與「烘焙 == 重算」測試、契約 1.1.0、重算端點、移除本地運動學退回路徑與本地合成的模擬擷取（模擬擷取功能本身保留）；驗收「瀏覽器資源與 `.next/static/` 不含核心特有字串」；擴充 `tests/privacy-docs.test.js`（新端點也只 log 固定字串；`lib/player/`、`lib/profiles/` 不 import `lib/core`／`lib/server`）；重新核對 `docs/privacy.md`。建議評估是否把 D1（單一來源整理）與 D6（重算端點）拆成獨立 Feature，避免 3.3 一次變更過多。
 - **3.4**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
 
