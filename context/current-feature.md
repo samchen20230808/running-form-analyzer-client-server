@@ -1,42 +1,16 @@
-# Current Feature: 1.3 Route Handler `/api/analyze`
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- `app/api/analyze/route.js`（POST、nodejs）只轉呼叫 `lib/server/http-handler.js` 的 `handleAnalyzeHttp`
-- 串流讀 body，以 `LIMITS.maxBodyBytes` 強制上限（不只信 Content-Length）→ 413
-- 錯誤對應：Content-Type 415、JSON 解析失敗 400、`invalid_request` 400、`payload_too_large` 413、`insufficient_frames` 422、非預期例外 500（不回 stack）
-- 所有回應 `Cache-Control: no-store`，無 CORS；非 POST 由 Next 回 405
-- `lib/server/access-control.js` 作為存取控制單一接入點（放行 stub），讀 body 前執行
-- 測試：`tests/api-analyze-route.test.js`、baseline 三份 landmarks 經 POST 逐值一致、core-modules import 限制
-- 新增 `docs/server-api.md`，更新路線圖
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-Spec: `context/features/1-3-api-analyze-route.md`。待決定事項採規格建議：1=A（walk 沿用既有測試）、2=A（Content-Type 嚴格比對）、3=只加 Cache-Control、4=A（Next 自動 405）、5=做舊新對照。
-
-### Baseline（開工前）
-- `npm run build` 成功（`/`、`/_not-found`、`/icon.svg` 皆靜態）
-- `REQUIRE_BASELINE=1 npm test`：5 檔 68 通過
-
-### 驗證結果
-- `npm run lint` 無錯誤；`npm run build` 成功，路由表 `/api/analyze` 為 `ƒ`（動態）
-- `REQUIRE_BASELINE=1 npm test`：6 檔 105 通過（開工前 68；Opus review 後補強測試與 `checkAccess` status 防呆）；不帶變數 103 通過、1 skip；無 `.temp` 時 route 測試照常執行（87 通過、17 skip）
-- walk 103／361ms／96、`kf-*` 逐字相同（既有測試）；三份 landmarks 經 `POST` 為 193／176／150，metrics 與基準一致，去 `timestamp` 後與 `analyzeRequest` `toStrictEqual`、key 順序相同，`validateAnalysisJSON` 無 warning
-- 舊新對照（scratchpad 一次性腳本，舊 `handleAnalyzeHttp` dev-open vs 新 `POST`，13 案例）：狀態碼與 body 完全一致（舊 handler 以 `process.cwd()` 載核心，比對時暫時切 cwd）
-- curl（dev，埠 3001）：200／400（非法 JSON、`{}`）／415／422／413（Content-Length 預檢與 chunked 串流計數兩條路徑）皆符合；GET／PUT／DELETE 405 與 OPTIONS 204（`allow: OPTIONS, POST`）都帶 `Cache-Control: no-store`；無 `Access-Control-*`、無 `X-Powered-By`；dev log 無錯誤
-- `.next/static` 搜尋不到核心字串與 `analyze failed`
-- Playwright：瀏覽器被其他實例占用（重試仍失敗），經使用者同意以 curl 替代；curl 驗證 `/` 與全部資源皆 200；無互動變更，略過第 4 項。dev server 已關閉
-
-### 決策與備註
-- 待決定事項採規格建議；Content-Type 嚴格比對是與舊 Server 唯一刻意差異（已寫入 `docs/server-api.md`）
-- walk 樣本無 landmarks，無法經 route；route 層以三份 landmarks 證明
-- `.gitignore` 加 `.vitest/`（RTK 包裝 vitest 時產生的 JSON 報告）
-- 路線圖 1.3 暫標 `in progress`，complete 時改 `done`
-- 已知：Vercel 4.5 MB 平台上限待 4.1 實測；2.1 存取控制須留在 route 內（`access-control.js`），不要放 `proxy.js`
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -68,3 +42,9 @@ Spec: `context/features/1-3-api-analyze-route.md`。待決定事項採規格建�
 把舊 `analyzeRequest`、`LIMITS`／`validateRequest` 搬成 `lib/server/analyze.js`、`validate-request.js`（server-only，核心只經 `lib/core/index.js`），`plain()` 照留；`validateAnalysisJSON` 放 `lib/contract/`（非 server-only，只 import `../config.js`）。決策：`analyzeRequest` 不做 HTTP，回傳 `{ ok, result }` 或 `invalid_request`／`payload_too_large`／`insufficient_frames`（匯出 `ANALYZE_ERRORS`），狀態碼 400／413／422 由 1.3 對應；55／8 進入 `LIMITS`；`isWalking`／`isBiomechanicalRunner` 判斷式不合併（另開 refactor）；舊契約文件複製為 `docs/analysis-json-contract.md`；刪除 `tests/helpers/landmarks-pipeline.js`，baseline 改用正式 `analyzeRequest`。
 
 驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 68 通過；walk 103／361ms／96、`kf-*` 逐字相同、三份 landmarks（193／176／150）與 client 樣本 `toStrictEqual`，`validateAnalysisJSON` 無 warning、產生端義務全過；逐字 diff 僅 import、`export`、註解與回傳形狀；舊新 `analyzeRequest` 14 項對照一致；client import `lib/server` build 失敗（指出 server-only），import `lib/contract` build 成功且 bundle 無核心字串。無 UI／API 變更，略過 Playwright。Opus review 通過，已處理 import 白名單 regex、3000 幀邊界、`schemaVersion: null` 等建議。已知：`isWalking` true 分支無 landmarks 樣本，僅靠逐字 diff；`insufficient_frames` 只斷言 `acceptedFrames < 8`；55 幀停止與 `finalize` 路徑無獨立單元測試。Spec: `context/features/1-2-analyze-pipeline-contract.md`。
+
+### 2026-11-11 — Feature 1.3: Route Handler `/api/analyze`
+
+新增 `app/api/analyze/route.js`（只 export `runtime`、`POST`）→ `lib/server/http-handler.js`（`handleAnalyzeHttp`，框架無關）。處理順序：存取控制 → Content-Type 415 → 串流讀 body 強制 `LIMITS.maxBodyBytes` 413（`Content-Length` 只預檢，超過即 `cancel`）→ JSON 400 → `analyzeRequest`（400／413／422），非預期例外 500 `internal_error`，只 log `analyze failed`。所有回應 `Cache-Control: no-store`（`next.config.mjs` `headers()` 讓 Next 自動 405／OPTIONS 也帶），無 CORS。存取控制單一接入點 `lib/server/access-control.js`（放行 stub，status 非 400–599 視為實作錯誤回 500），Epic 2 只換此模組。新增 `docs/server-api.md`。決策：Content-Type 嚴格比對 media type（與舊 Server 唯一刻意差異）；其餘安全標頭留 2.1；405 交給 Next。
+
+驗證：lint、build 通過（`/api/analyze` 為 `ƒ`）；`REQUIRE_BASELINE=1 npm test` 105 通過（不帶變數 103＋1 skip）；walk 103／361ms／96、`kf-*` 逐字相同、三份 landmarks 經 `POST` 193／176／150 且與 `analyzeRequest` `toStrictEqual`；舊新 handler 13 案例對照一致；curl 200／400／415／422／413（兩條路徑）／405／OPTIONS 符合，`.next/static` 無核心字串。Playwright 因瀏覽器被占用，經使用者同意以 curl 驗證首頁與資源皆 200。Opus review 通過，已處理 status 防呆與測試強化。已知：Vercel 4.5 MB 平台上限待 4.1 實測；2.1 存取控制須留在 route 內，不要用 `proxy.js`；walk 樣本無 landmarks，無法經 route；`.gitignore` 加 `.vitest/`。Spec: `context/features/1-3-api-analyze-route.md`。

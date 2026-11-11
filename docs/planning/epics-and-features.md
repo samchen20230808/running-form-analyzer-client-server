@@ -37,7 +37,7 @@
 | ------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------- |
 | 1.1     | 核心純計算模組搬成 ES module | done | `biomechanics`、`keyframes`、`landmark-extract`、`cycle-analysis`、`keyframes-builder`（由 1.2 提前）；與 baseline 逐值一致 |
 | 1.2     | analyze 主流程與契約 v1.0.0  | done | `analyzeRequest`（回傳錯誤類型，狀態碼由 1.3 對應）、`LIMITS`／`validateRequest`、`validateAnalysisJSON`（`lib/contract/`，非 server-only）；契約文件搬入；baseline 改用正式 `analyzeRequest`，已刪除 `tests/helpers/landmarks-pipeline.js` |
-| 1.3     | Route Handler `/api/analyze` | in progress | `app/api/analyze/route.js` → `lib/server/http-handler.js`：串流讀 body 強制 `LIMITS.maxBodyBytes`、Content-Type 嚴格比對、400／413／415／422／500、`Cache-Control: no-store`；存取控制單一接入點 `lib/server/access-control.js`（放行 stub）；`docs/server-api.md` |
+| 1.3     | Route Handler `/api/analyze` | done | `app/api/analyze/route.js` → `lib/server/http-handler.js`：串流讀 body 強制 `LIMITS.maxBodyBytes`、Content-Type 嚴格比對、400／413／415／422／500、`Cache-Control: no-store`；存取控制單一接入點 `lib/server/access-control.js`（放行 stub）；`docs/server-api.md` |
 
 ## Epic 2 — 存取控制（同源）
 
