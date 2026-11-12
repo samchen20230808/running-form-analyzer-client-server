@@ -14,7 +14,7 @@
 
 3.2 起，`/` 導向 `/legacy/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`、`public/legacy/`）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取、JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。
 
-**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
+**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。3.4 起，`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）以 `public/legacy/modules/` 的同步副本在瀏覽器執行，這是永久範圍，不是過渡期，且沒有新的資料流。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
 
 3.3 起，影片擷取完成時會上傳擷取期間的**每一幀** landmarks（最多 1500 幀，最多約 3.5 MB），Client **不送 `profileName`**，所以 API 回應不含影片檔名；但匯出的 JSON 的 `profileName` 由 Client 本地寫入，仍含影片檔名（與 3.2 相同）。3.7 完成時須再核對本文件。
 
@@ -87,3 +87,5 @@
 ## 11. 文件與程式的一致性
 
 `tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：暫時核心只在 `public/legacy/temp-core/` 且帶 `TEMP-CORE` 標示、`app/`／`lib/` 不引用它、舊 Client 不使用瀏覽器儲存與其他外送通道、`fetch` 只有一處（`js/analyzer.js` 的相對路徑 `/api/analyze`）、上傳請求不含 `profileName`、上傳幀數上限不超過 `LIMITS`、`VERCEL` 環境的部署防線。`next.config.mjs` 在 build 時讀 `VERCEL` 作為部署防線，不屬 Server 執行期。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。
+
+`tests/browser-modules.test.js` 檢查：`lib/player/`、`lib/landmarks/` 不含 server-only 相依與核心特有字串、只用同目錄相對 import，且與 `public/legacy/modules/` 的同步副本內容一致。

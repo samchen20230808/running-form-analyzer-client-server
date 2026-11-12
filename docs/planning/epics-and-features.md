@@ -53,11 +53,12 @@
 | 3.1     | 盤點 Client 對本地解算的依賴 | done | 調查，不改程式；結論見 [`docs/client-server-boundary.md`](../client-server-boundary.md)：播放／繪圖函式拆至 `lib/player/`、內建 profile 烘焙關鍵幀（`lib/profiles/`）、移除本地運動學退回路徑、衍生值由 Server 回傳（契約 1.1.0）、重算端點 `POST /api/derive`（暫名）；D8／D9 已決定保留即時 HUD／同步骨架／模擬擷取（角度擷取與閘門進瀏覽器，`lib/landmarks/`）；D6 端點 `POST /api/derive` 已接受；現階段以 Client 表現優先，是否收緊 server-only 待使用一陣後再評估 |
 | 3.2     | 搬入現有 Client UI           | done | 舊 Client 原樣放入 `public/legacy/`，`/` 以 307 導向 `/legacy/index.html`；舊核心暫存 `public/legacy/temp-core/`（`TEMP-CORE` 檔頭），`VERCEL` 環境 build 會失敗，3.3 移除前不得部署；規格見 [`3-2`](../../context/features/3-2-client-ui-migration.md) |
 | 3.3     | Client 呼叫 `/api/analyze`   | done | 影片擷取完成時上傳 landmarks、套用 Server 結果；錯誤提示、過時回應丟棄；刪除 `customCycleFrames`；`lib/` 不動、temp-core 與部署防線保留；規格見 [`3-3`](../../context/features/3-3-client-calls-analyze.md) |
-| 3.4     | 瀏覽器共用模組與橋接         | planned | `lib/player/`、`lib/landmarks/`（D1、D8）；決定 public 頁面橋接機制（建議複製到 `public/legacy/modules/`＋逐位元組測試） |
+| 3.4     | 瀏覽器共用模組與橋接         | done | `lib/player/`、`lib/landmarks/` 為單一來源（`lib/core/` 轉匯出）；`npm run sync:legacy` 複製到 `public/legacy/modules/`，`window.RFA` 橋接，UI 6 組呼叫點已切換；`evaluateProfileAngles` 留 3.5；規格見 [`3-4`](../../context/features/3-4-browser-shared-modules-bridge.md) |
 | 3.5     | 內建 profile 烘焙與模擬擷取  | planned | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 須先做原型確認可行 |
 | 3.6     | 衍生值 API                   | planned | 契約 1.1.0（`metrics.gct` 完整物件）＋ `POST /api/derive`；只動 Server（D5、D6） |
 | 3.7     | Client 改讀衍生值並移除 temp-core | planned | UI 改讀 `metrics`／derive、移除 `public/legacy/temp-core/` 與 `VERCEL` 部署防線、bundle 檢查、改寫過渡期文件；完成後才可進 4.1 |
 | 3.8     | 報告匯出                     | planned | 原 3.4：舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心 |
+| 3.9     | 頁面改為根路徑 `/index.html` | planned | 使用者要求：`npm run dev` 後直接以 `http://localhost:3000/index.html` 開啟（現為 `/legacy/index.html`，`/` 307 導向）；規格階段決定作法（建議先評估「整包搬到 `public/` 根目錄並移除 `/`→legacy 轉址」或「只加 `/index.html` 轉址」），連動 `tests/legacy-client.test.js`、`scripts/sync-legacy-modules.mjs` 目的地、文件；建議排在 3.5 之前，避免後續 Feature 沿用舊路徑 |
 
 ## Epic 4 — 部署（單一 Vercel 專案）
 
@@ -72,7 +73,7 @@
 - ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：Client 已搬入（3.2），可另開 `fix-` 處理（建議 3.7 之後，位置見 3.2 規格第 10 節）。
 - ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 已於 1.2 成為 `LIMITS.maxAcceptedFrames`／`minAcceptedFrames`（Server 端單一來源；Client 的 `>= 55`／`< 8` 已於 3.2 搬入後暫時重複，3.7 移除本地解算時消失）。判斷式合併 1.2 不處理，另開 `refactor-` Feature（建議 3.2 之後），開工前先補「步頻 < 135」與「avgElbow／hipRomDeg 為 null」的對照值（現有 landmarks 樣本步頻皆 ≥ 135，`isWalking` 的 true 分支只靠逐字 diff）。
 - ✅ 「觸地 361ms／總分 96」基準來源已確認：由核心 `computeGctMetrics`／`calculateOverallRunningScore` 對 walk summary 計算得出，比對方式見 1.1 規格；建議以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
-- ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，由 3.4–3.7 落實）舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。建議預設：拆出瀏覽器可用的 `lib/player/`（`solveKinematics`、`sampleCycleKeyframes`、`normalizeCycleKeyframes`，單一來源），其餘由 Server 回傳。
+- ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，3.4 已落實 `lib/player/`、`lib/landmarks/`，`evaluateProfileAngles` 拆分於 3.5；其餘由 3.5–3.7 落實）舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。建議預設：拆出瀏覽器可用的 `lib/player/`（`solveKinematics`、`sampleCycleKeyframes`、`normalizeCycleKeyframes`，單一來源），其餘由 Server 回傳。
 - ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，由 3.3 落實）`RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；建議預設：移除本地運動學退回路徑；profile 靜態資料放 `lib/profiles/` 並附烘焙關鍵幀；`evaluateProfileCycle` 刪除、`getActiveRunnerTiming` 改唯讀。
 - ⏳ 限流改外部儲存（Upstash Redis）：把服務開放給他人之前再評估。
 - ⏳ 骨架時序平滑（One Euro）原型：舊專案 branch `feature-skeleton-smoothing-proto`，擱置。

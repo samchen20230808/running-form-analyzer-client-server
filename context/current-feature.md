@@ -1,18 +1,37 @@
-# Current Feature
+# Current Feature: 3.4 瀏覽器共用模組與橋接
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 建立 `lib/player/`（solveKinematics、sampleCycleKeyframes、normalizeCycleKeyframes、常數、parseManualStrideValue）與 `lib/landmarks/`（extractAnglesFromLandmarks、evaluateCaptureFrame），非 server-only，函式本體逐字照搬
+- `lib/core/` 改由新模組 import／轉匯出，`index.js` 的 9 個對外名稱不變，刪除 `lib/core/landmark-extract.js`
+- `scripts/sync-legacy-modules.mjs` 同步到 `public/legacy/modules/`，`bridge.js` 掛 `window.RFA`，`index.html` 同行載入
+- 舊 UI 6 組呼叫點改用 `RFA.player.*`／`RFA.landmarks.*`（`evaluateProfileAngles` 留 3.5）
+- 新增 `tests/browser-modules.test.js`，修改 `legacy-client`／`core-modules` 測試把關分岔
+- 同步文件；baseline 不變，temp-core 與部署防線保留（仍不可部署）
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+規格：`context/features/3-4-browser-shared-modules-bridge.md`
+
+待決定採建議預設：切換範圍＝切換、橋接＝同步複製、parseManualStrideValue＝lib/player/stride-input.js、刪除 lib/core/landmark-extract.js。AGENTS.md 不改。
+
+Baseline（動手前）：build 成功；`REQUIRE_BASELINE=1 npm test` 172 通過。
+
+驗證（實作後）：
+- lint 無問題、build 成功；`REQUIRE_BASELINE=1 npm test` 185 通過（不帶變數 184＋1 skip）；walk 103／361ms／96、`kf-*`、三份 landmarks 基準不變。
+- mutation：改 `lib/player/stride-input.js` 一個字元，`browser-modules` B1 等 3 項失敗並提示 `npm run sync:legacy`，還原後通過。
+- bundle：`.next/static` 無 server-only 核心字串、無 `solveKinematics`／`extractAnglesFromLandmarks`；`public/` 的核心特有字串只在 temp-core（`modules/` 零命中）。
+- HTTP（dev）：`/` 307；`/legacy/modules/*.js` 200，`application/javascript; charset=UTF-8`。
+- Playwright：console 0 error；`RFA` 已凍結且匯出名稱正確；3 個內建 profile × 101 個 p 的 `solveKinematics` 與 temp-core 全域版 JSON 相等（303 筆 0 差異）；`parseManualStrideValue`／`normalizeCycleKeyframes` 等價；`woman03 - Trim.mp4` 擷取恰好 1 個 POST，custom_captured 101 幀關鍵幀；切 Profile、播放暫停、相位按鈕、ghost／trail 切換、匯入 walk JSON 與 kf-walk-101、手動步幅 1.1 可用，`abc` 被忽略。
+- 決策：`package.json` 新增 npm script `sync:legacy`（非依賴）；AGENTS.md 未改（第 14 節第 2 點待使用者決定）。
+- 未驗：拖入影片、模擬擷取、DOMContentLoaded 時 `RFA` 已存在僅以載入後狀態推論（無錯誤即代表呼叫前已掛好）；匯入壞 cycleKeyframes 退回。
 
 ## History
+
 
 <!-- STAY vs MOVE rule:
      - TODAY's entries → stay here in current-feature.md

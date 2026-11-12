@@ -131,6 +131,78 @@ describe("舊 Client 的一致性", () => {
   });
 });
 
+describe("3.4 橋接與切換", () => {
+  const norm = (t) => t.replace(/\r\n/g, "\n");
+  // 擷取頂層函式／常數：從宣告起，到下一個位於第 0 欄的 } 或 ];
+  function extract(src, name) {
+    const text = norm(src).replace(/^export /gm, "");
+    const start = text.search(new RegExp(`^(function|const)\\s+${name}\\b`, "m"));
+    if (start < 0) return null;
+    const rest = text.slice(start);
+    const firstLine = rest.split("\n")[0];
+    if (firstLine.startsWith("const") && firstLine.endsWith(";")) return firstLine;
+    const m = rest.match(/\n(\}|\];)\n/);
+    return rest.slice(0, m.index + m[0].length);
+  }
+  const SOURCES = {
+    CYCLE_KEYFRAME_NUMERIC_FIELDS: ["lib/player/keyframes.js", "keyframes.js"],
+    CYCLE_KEYFRAME_MIN_FRAMES: ["lib/player/keyframes.js", "keyframes.js"],
+    normalizeCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
+    sampleCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
+    evaluateProfileAngles: ["lib/core/keyframes.js", "keyframes.js"],
+    extractAnglesFromLandmarks: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
+    evaluateCaptureFrame: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
+    parseManualStrideValue: ["lib/player/stride-input.js", "biomechanics.js"],
+    solveKinematics: ["lib/player/kinematics.js", "biomechanics.js"],
+  };
+
+  it("C1 新模組的函式本體與 temp-core 相同", () => {
+    for (const [name, [lib, tc]] of Object.entries(SOURCES)) {
+      const a = extract(read(lib), name);
+      const b = extract(read(`public/legacy/temp-core/${tc}`), name);
+      expect(a, `${name} (lib)`).not.toBeNull();
+      expect(a, name).toBe(b);
+    }
+  });
+
+  it("C2 index.html 與 analyzer.js 同一行載入 bridge.js，且只有一次", () => {
+    const html = read("public/legacy/index.html");
+    const tag = '<script type="module" src="modules/bridge.js"></script>';
+    expect(html.split(tag)).toHaveLength(2);
+    const line = html.split(/\r?\n/).find((l) => l.includes(tag));
+    expect(line).toContain('src="js/analyzer.js"');
+  });
+
+  it("C3 UI 只能以 RFA. 前綴呼叫已搬出的函式", () => {
+    const names = [
+      "solveKinematics",
+      "extractAnglesFromLandmarks",
+      "evaluateCaptureFrame",
+      "normalizeCycleKeyframes",
+      "parseManualStrideValue",
+    ];
+    const files = [...listFiles("public/legacy/js/", ".js"), "public/legacy/index.html"];
+    for (const p of files) {
+      const src = read(p);
+      for (const n of names) {
+        expect(src, `${p}: ${n}`).not.toMatch(new RegExp(`(?<![.\\w])${n}\\s*\\(`));
+      }
+    }
+  });
+
+  it("C4 modules/ 不含核心特有字串", () => {
+    const markers = [
+      "嚴重跨步煞車或身後推蹬",
+      "generatePoseMethodAlignedCycle",
+      "computeGctMetrics",
+      "calculateOverallRunningScore",
+    ];
+    for (const p of listFiles("public/legacy/modules/", ".js")) {
+      for (const m of markers) expect(read(p), `${p}: ${m}`).not.toContain(m);
+    }
+  });
+});
+
 describe("部署防線", () => {
   const saved = process.env.VERCEL;
   afterEach(() => {
