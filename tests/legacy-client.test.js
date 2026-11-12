@@ -350,3 +350,29 @@ describe("R 3.8 報告匯出", () => {
     expect(report()).not.toContain("console.error");
   });
 });
+
+describe("匯出 JSON 檔名（buildExportFileName）", () => {
+  // 從 analyzer.js 原始碼取出純函式本體，不載入整支 script
+  const src = read("public/js/analyzer.js");
+  const start = src.indexOf("function buildExportFileName");
+  const body = src.slice(start, src.indexOf("\nfunction exportAnalysisJSON"));
+  const build = new Function(`${body}\nreturn buildExportFileName;`)();
+  const day = new Date(2026, 0, 5, 23, 59); // 本機時區 2026-01-05
+
+  it("X1 影片擷取：影片名去掉前綴與副檔名，加本機日期", () => {
+    expect(build({ name: "🎥 影片: woman03 - Trim.mp4" }, "custom_captured", day)).toBe("woman03 - Trim-2026-01-05.json");
+  });
+  it("X2 內建 profile：用 profileKey", () => {
+    expect(build({ name: "★ 徐國峰教練 (關鍵跑姿黃金標準)" }, "hsu_pose_method", day)).toBe("hsu_pose_method-2026-01-05.json");
+  });
+  it("X3 匯入檔：去掉副檔名與既有日期尾巴，不重複日期", () => {
+    expect(build({ name: "📄 woman03-2026-01-01.json" }, "json_1", day)).toBe("woman03-2026-01-05.json");
+  });
+  it("X4 檔名非法字元換成底線；名稱為空退回 profileKey", () => {
+    expect(build({ name: '🎥 影片: a/b:c*d.mp4' }, "custom_captured", day)).toBe("a_b_c_d-2026-01-05.json");
+    expect(build({ name: "" }, "custom_captured", day)).toBe("custom_captured-2026-01-05.json");
+  });
+  it("X5 exportAnalysisJSON 使用該函式", () => {
+    expect(src).toContain("a.download = buildExportFileName(profile, activeProfileKey, new Date());");
+  });
+});

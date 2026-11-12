@@ -532,6 +532,23 @@ function importAnalysisJSON(event) {
   event.target.value = "";
 }
 
+// 匯出檔名：<影片名>-<今日日期>.json（日期為本機時區 YYYY-MM-DD）。
+// 內建 profile 沒有影片，用 profileKey；匯入的檔名會去掉副檔名與既有日期尾巴，避免重複。
+function buildExportFileName(profile, profileKey, now) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  let base = "";
+  if (profileKey !== "hsu_pose_method" && profileKey !== "night_track_runner") {
+    base = String((profile && profile.name) || "")
+      .replace(/^(🎥\s*影片:|📄)\s*/, "")
+      .replace(/\.[A-Za-z0-9]{1,5}$/, "")
+      .replace(/-\d{4}-\d{2}-\d{2}$/, "")
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
+      .trim();
+  }
+  return `${base || profileKey}-${date}.json`;
+}
+
 function exportAnalysisJSON() {
   const profile =
     RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
@@ -559,7 +576,7 @@ function exportAnalysisJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `running-biomech-${activeProfileKey}.json`;
+  a.download = buildExportFileName(profile, activeProfileKey, new Date());
   a.click();
   URL.revokeObjectURL(url);
 }
