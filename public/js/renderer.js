@@ -1,6 +1,28 @@
 const simCanvas = document.getElementById("simCanvas");
 const simCtx = simCanvas.getContext("2d");
 
+// 5.1：繪圖座標固定為邏輯尺寸，backing store 依顯示寬與 devicePixelRatio 放大
+const SIM_SIZE = { w: 700, h: 480 };
+const WAVE_SIZE = { w: 720, h: 150 };
+let simScale = 1;
+let waveScale = 1;
+
+// 需求 ≤ 1.25 時維持 1（DPR 1 桌面 backing store 不變）；否則以 0.25 為單位放大、上限 3
+function fitCanvasResolution(canvas, size) {
+  const r = canvas.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  const shownW = Math.min(r.width, (r.height * size.w) / size.h);
+  const need = (shownW * (window.devicePixelRatio || 1)) / size.w;
+  const scale = need <= 1.25 ? 1 : Math.min(3, Math.ceil(need * 4) / 4);
+  const w = Math.round(size.w * scale);
+  const h = Math.round(size.h * scale);
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  return scale;
+}
+
 function getRightLegTrailColor(tp, timing) {
   const poseP = (timing.posePct || 15) / 100;
   const bPoseStart = Math.max(0.05, poseP - 0.07);
@@ -19,8 +41,9 @@ function getRightLegTrailColor(tp, timing) {
 }
 
 function drawSimulator() {
-  const W = simCanvas.width;
-  const H = simCanvas.height;
+  const W = SIM_SIZE.w;
+  const H = SIM_SIZE.h;
+  simCtx.setTransform(simScale, 0, 0, simScale, 0, 0);
   simCtx.clearRect(0, 0, W, H);
 
   const groundY = 462;
@@ -575,8 +598,9 @@ const waveCanvas = document.getElementById("waveCanvas");
 const waveCtx = waveCanvas.getContext("2d");
 
 function drawWaveform() {
-  const W = waveCanvas.width;
-  const H = waveCanvas.height;
+  const W = WAVE_SIZE.w;
+  const H = WAVE_SIZE.h;
+  waveCtx.setTransform(waveScale, 0, 0, waveScale, 0, 0);
   waveCtx.clearRect(0, 0, W, H);
 
   const padL = 32,
@@ -730,6 +754,26 @@ function drawWaveform() {
   waveCtx.moveTo(curX, padT);
   waveCtx.lineTo(curX, padT + plotH);
   waveCtx.stroke();
+}
+
+// 5.1：畫布顯示尺寸改變時重算 backing store（重設尺寸會清空畫布，故立即重畫）
+function refitCanvases() {
+  const s = fitCanvasResolution(simCanvas, SIM_SIZE);
+  if (s) simScale = s;
+  const w = fitCanvasResolution(waveCanvas, WAVE_SIZE);
+  if (w) waveScale = w;
+  // 重設尺寸會清空畫布；初始化未完成（RUNNER_PROFILES 尚未建立）時由 animateLoop 重畫
+  try {
+    drawSimulator();
+    drawWaveform();
+  } catch {
+    /* 下一幀 animateLoop 會重畫 */
+  }
+}
+if (typeof ResizeObserver !== "undefined") {
+  const canvasResizeObserver = new ResizeObserver(refitCanvases);
+  canvasResizeObserver.observe(simCanvas);
+  canvasResizeObserver.observe(waveCanvas);
 }
 
 // ★ 100% 還原原始版本的動畫迴圈與速度係數 (dt * 42 * simSpeed * cadenceFactor)

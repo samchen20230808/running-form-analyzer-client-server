@@ -107,3 +107,90 @@
 }
 .rp-gct-bar { display: flex; width: 100%; height: 22px; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
 .rp-gct-bar > div { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 700; overflow: hidden; white-space: nowrap; }
+
+/* 5.1 手機版 RWD：開始 */
+@media screen and (max-width: 1023.98px), screen and (pointer: coarse) {
+  #appHeader { position: static; }
+  #appHeader button,
+  #appHeader label,
+  #appHeader select,
+  #dashBanner button,
+  #coreOneCard button,
+  #coreOneCard select,
+  #coreOneCard label,
+  #coreTwoCard button,
+  #diagnosticCardsContainer button {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+  #dashBanner input[type="number"] { min-height: 44px; }
+  #appHeader input[type="number"],
+  #appHeader select,
+  #cameraModeSelect,
+  #videoRateSelect {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  #runnerHeightInput,
+  #customStrideInput { width: 4.5em; }
+  #cycleSlider,
+  #videoSeekSlider { height: 44px; touch-action: manipulation; }
+  #cycleSlider::-webkit-slider-runnable-track,
+  #videoSeekSlider::-webkit-slider-runnable-track { height: 8px; }
+  #cycleSlider::-webkit-slider-thumb,
+  #videoSeekSlider::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -10px; }
+  #cycleSlider::-moz-range-track,
+  #videoSeekSlider::-moz-range-track { height: 8px; border-radius: 999px; background: #334155; }
+  #cycleSlider::-moz-range-thumb,
+  #videoSeekSlider::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #06b6d4; border: 2px solid #f8fafc; }
+  #simCanvas { touch-action: pan-y pinch-zoom; }
+}
+
+@media screen and (max-width: 639.98px) {
+  #cameraModeSelect { width: 10em; max-width: 100%; min-width: 0; }
+  #navSubtitle,
+  #headerStrideGroup { display: none; }
+  #headerToolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  #headerToolbar > * { justify-content: center; text-align: center; }
+  #profileSelectGroup { grid-column: span 2; }
+  #profileSelect { min-width: 0; width: 100%; }
+
+  #videoDropZone { flex-direction: column; min-height: 280px; }
+  #videoHud { position: static; order: -1; width: 100%; border-radius: 0; }
+  #videoHud > div { flex-wrap: wrap; }
+  #videoOverlayCanvas { width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+  #liveSyncLabel { position: static; order: 1; align-self: flex-end; margin: 8px; }
+  #videoSeekSlider,
+  #cycleSlider { flex-basis: 100%; }
+
+  #simStage { flex-direction: column; min-height: 0; }
+  #simCanvas { width: 100%; height: auto; }
+  #simHud { position: static; order: -1; max-width: none; width: 100%; text-align: left; border-radius: 0; }
+  #simLegend { position: static; order: 1; max-width: none; margin: 8px; }
+
+  #phaseBtnGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #kpiGrid .justify-between,
+  #phaseTimingPanel .justify-between { flex-wrap: wrap; gap: 4px; }
+  #diagLegend { flex-wrap: wrap; }
+  #waveStage { min-height: 0; }
+  #waveCanvas { height: auto; aspect-ratio: 720 / 150; }
+
+  #reportOverlay { padding: 8px; }
+  .rp-toolbar input { width: 100%; font-size: 16px; min-height: 44px; }
+  .rp-toolbar button { min-height: 44px; }
+  .rp-page { padding: 16px; }
+  .rp-basic { flex-wrap: wrap; }
+  .rp-basic > div { flex-basis: calc(50% - 6px); }
+  .rp-cards,
+  .rp-shots { grid-template-columns: 1fr; }
+  .rp-shots-one { max-width: 100%; }
+}
+
+@media screen and (hover: none) and (pointer: coarse) {
+  #dropHintDesktop { display: none; }
+  #dropHintTouch { display: block; }
+  #videoCaptureLabel { display: inline-flex; flex-direction: column; align-items: center; }
+  #videoCaptureLabelBar { display: inline-flex; align-items: center; }
+}
+/* 5.1 手機版 RWD：結束 */

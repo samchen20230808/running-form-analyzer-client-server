@@ -70,7 +70,7 @@
 
 | Feature | 名稱        | 狀態    | 說明                                                                                           |
 | ------- | ----------- | ------- | ---------------------------------------------------------------------------------------------- |
-| 5.1     | 手機版 UI   | planned | 使用者要求：頁面在手機尺寸可用（版面、觸控操作、影片選擇／拍攝、骨架畫布縮放）；規格階段決定是在舊頁面調整 RWD，或隨 React 化重做；需實機或 Playwright 手機視窗驗證 |
+| 5.1     | 手機版 UI   | done | 舊頁面 RWD（`main.css` 末端單一區段、id 選擇器）、觸控目標 ≥ 44px、骨架畫布觸控拖曳換格、觸控裝置「拍攝影片」按鈕、畫布依 devicePixelRatio 清晰化；無新依賴、Server 零變更；Playwright 手機視窗驗證，實機待驗清單見 [`5-1`](../../context/features/5-1-mobile-ui.md) 第 9 節 |
 | 5.2     | PWA         | planned | 使用者要求：web app manifest、圖示、service worker（離線殼層）、可安裝；須決定快取範圍（`/api/analyze` 不快取、MediaPipe CDN 資源是否預快取）、更新策略與版本號同步（`APP_CONFIG`）；需 HTTPS（Epic 4 部署後）；建議在 5.1 之後 |
 
 前置：Epic 4 完成（PWA 需要 HTTPS 的實際部署網址）；3.9 完成（路徑確定後再設定 manifest `start_url`／service worker scope）。

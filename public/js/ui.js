@@ -164,6 +164,44 @@ function loadVideoFile(file) {
     syncVideoPlayButtonUI();
     processVideoFrameLoop();
   };
+
+  // 5.1：瀏覽器無法解碼（例如 HEVC）時提示並還原空狀態
+  sourceVideo.onerror = () => {
+    if (sourceVideo.src !== url || sourceVideo.readyState >= 2) return;
+    URL.revokeObjectURL(url);
+    sourceVideo.removeAttribute("src");
+    sourceVideo.load();
+    document.getElementById("videoEmptyOverlay").classList.remove("hidden");
+    alert(
+      "此瀏覽器無法播放這支影片（常見為 iPhone 的 HEVC 格式），請改用 H.264 MP4，或在 iPhone「設定 › 相機 › 格式」選「最相容」後重拍",
+    );
+  };
+}
+
+// 5.1：觸控／筆在骨架畫布上水平拖曳換格；滑鼠不處理（桌面行為不變）
+const simScrubCanvas = document.getElementById("simCanvas");
+let simScrub = null; // { id, x, y, pct, active }
+simScrubCanvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "mouse" || simScrub) return;
+  simScrub = { id: e.pointerId, x: e.clientX, y: e.clientY, pct: cyclePct, active: false };
+});
+simScrubCanvas.addEventListener("pointermove", (e) => {
+  if (!simScrub || e.pointerId !== simScrub.id) return;
+  const dx = e.clientX - simScrub.x;
+  const dy = e.clientY - simScrub.y;
+  if (!simScrub.active) {
+    if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+    simScrub.active = true;
+    simScrubCanvas.setPointerCapture(e.pointerId);
+  }
+  const width = simScrubCanvas.getBoundingClientRect().width || 1;
+  const pct = simScrub.pct + (dx / width) * 100; // 拖過整個畫布寬 = 一個週期
+  jumpToCyclePct(Math.round(((pct % 100) + 100) % 100));
+});
+for (const type of ["pointerup", "pointercancel"]) {
+  simScrubCanvas.addEventListener(type, () => {
+    simScrub = null;
+  });
 }
 
 function setRunDirection(dir, isManual = false) {
