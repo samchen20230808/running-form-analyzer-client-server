@@ -1,5 +1,5 @@
 function extractExactAnglesWithAspectCorrection(lm, W, H, videoTime) {
-  const { extracted, runDirection: dir } = extractAnglesFromLandmarks(lm, W, H, {
+  const { extracted, runDirection: dir } = RFA.landmarks.extractAnglesFromLandmarks(lm, W, H, {
     runDirection,
     isManualDirection,
     heightCm:
@@ -58,7 +58,7 @@ function onPoseResults(results) {
           lm: lm.map((p) => [p.x, p.y, p.visibility ?? null]),
         });
       }
-      const gate = evaluateCaptureFrame(
+      const gate = RFA.landmarks.evaluateCaptureFrame(
         extracted,
         capturedRawFrames,
         lockedSubjectHipX === null
@@ -218,7 +218,7 @@ function applyCapturedResult(cadence, summary, cycleKeyframes) {
   // 重新擷取前一律清掉舊關鍵幀，避免新 summary 搭配舊關鍵幀
   delete RUNNER_PROFILES.custom_captured.cycleKeyframes;
   if (cycleKeyframes !== undefined && cycleKeyframes !== null) {
-    const ck = normalizeCycleKeyframes(cycleKeyframes);
+    const ck = RFA.player.normalizeCycleKeyframes(cycleKeyframes);
     if (ck.ok) {
       RUNNER_PROFILES.custom_captured.cycleKeyframes = ck.keyframes;
     } else {
@@ -475,7 +475,7 @@ function importAnalysisJSON(event) {
 
         // 2.2：合法的 cycleKeyframes 掛到 Profile；不合法則警告並退回本地運動學
         if (data.cycleKeyframes !== undefined) {
-          const ckResult = normalizeCycleKeyframes(data.cycleKeyframes);
+          const ckResult = RFA.player.normalizeCycleKeyframes(data.cycleKeyframes);
           if (ckResult.ok) {
             RUNNER_PROFILES[dynamicKey].cycleKeyframes = ckResult.keyframes;
             console.info(

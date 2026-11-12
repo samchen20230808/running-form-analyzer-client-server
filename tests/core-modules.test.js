@@ -145,3 +145,21 @@ describe("server-only 與環境隔離", () => {
     }
   });
 });
+
+describe("3.4 瀏覽器函式不再定義於 lib/core", () => {
+  it("已移到 lib/player、lib/landmarks", () => {
+    const names = [
+      "solveKinematics",
+      "parseManualStrideValue",
+      "normalizeCycleKeyframes",
+      "sampleCycleKeyframes",
+      "extractAnglesFromLandmarks",
+      "evaluateCaptureFrame",
+    ];
+    for (const f of coreFiles) {
+      const src = readFileSync(new URL(f, CORE_DIR), "utf8");
+      for (const n of names) expect(src, `${f}: ${n}`).not.toMatch(new RegExp(`function\\s+${n}\\b`));
+    }
+    expect(coreFiles).not.toContain("landmark-extract.js");
+  });
+});

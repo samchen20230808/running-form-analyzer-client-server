@@ -1330,7 +1330,7 @@
     <script src="temp-core/keyframes.js"></script><!-- 暫時：3.3 移除 -->
     <script src="temp-core/landmark-extract.js"></script><!-- 暫時：3.3 移除 -->
     <script src="temp-core/cycle-analysis.js"></script><!-- 暫時：3.3 移除 -->
-    <script src="js/analyzer.js"></script>
+    <script src="js/analyzer.js"></script><script type="module" src="modules/bridge.js"></script>
     <!-- report.js：3.4 搬入 -->
     <script>
 
@@ -1383,7 +1383,7 @@
 
 
       function onManualStrideInput(val) {
-        const stride = parseManualStrideValue(val);
+        const stride = RFA.player.parseManualStrideValue(val);
         if (stride === null) return;
         isManualStride = true;
         manualStrideValue = stride;
@@ -2061,7 +2061,7 @@
             RUNNER_PROFILES[activeProfileKey] ||
             RUNNER_PROFILES.hsu_pose_method;
           const a = evaluateProfileCycle(profile, p);
-          const pose = solveKinematics(a, W * 0.48, 360, 0.95);
+          const pose = RFA.player.solveKinematics(a, W * 0.48, 360, 0.95);
 
           drawRunnerSilhouette(videoCtx, pose, profile.appearance);
           drawSkeletonFigure(videoCtx, pose, {

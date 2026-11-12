@@ -52,8 +52,8 @@ function drawSimulator() {
   const refProfile = RUNNER_PROFILES.hsu_pose_method;
   const refAngles = refProfile.evalCycle(p);
 
-  const activePose = solveKinematics(activeAngles, originX, groundY, 1.0);
-  const refPose = solveKinematics(refAngles, originX, groundY, 1.0);
+  const activePose = RFA.player.solveKinematics(activeAngles, originX, groundY, 1.0);
+  const refPose = RFA.player.solveKinematics(refAngles, originX, groundY, 1.0);
 
   if (layers.trail) {
     const steps = 80;
@@ -62,7 +62,7 @@ function drawSimulator() {
     simCtx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const tp = i / steps;
-      const rPose = solveKinematics(
+      const rPose = RFA.player.solveKinematics(
         refProfile.evalCycle(tp),
         originX,
         groundY,
@@ -81,7 +81,7 @@ function drawSimulator() {
     const trailPoints = [];
     for (let i = 0; i <= steps; i++) {
       const tp = (i % steps) / steps;
-      const tPose = solveKinematics(
+      const tPose = RFA.player.solveKinematics(
         activeProfile.evalCycle(tp),
         originX,
         groundY,
@@ -139,7 +139,7 @@ function drawSimulator() {
       },
     ];
     phaseMarkers.forEach((m) => {
-      const mPose = solveKinematics(
+      const mPose = RFA.player.solveKinematics(
         activeProfile.evalCycle(m.pct),
         originX,
         groundY,

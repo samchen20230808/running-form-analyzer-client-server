@@ -12,7 +12,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:legacy": "node scripts/sync-legacy-modules.mjs"
   },
   "dependencies": {
     "next": "16.4.6",
