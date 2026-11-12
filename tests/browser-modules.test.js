@@ -1,4 +1,4 @@
-// 3.4：瀏覽器共用模組（lib/player、lib/landmarks）的結構、同一性、冒煙值與 public/legacy/modules 副本一致性。
+// 3.4：瀏覽器共用模組（lib/player、lib/landmarks）的結構、同一性、冒煙值與 public/modules 副本一致性。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as core from "../lib/core/index.js";
@@ -133,25 +133,25 @@ describe("A4 冒煙值（搬遷前後逐值相同）", () => {
   });
 });
 
-describe("B1 public/legacy/modules 與 lib 同步", () => {
+describe("B1 public/modules 與 lib 同步", () => {
   it("檔案清單與內容（換行正規化後）相同", () => {
     const hint = "請執行 npm run sync:legacy";
-    const copies = MANAGED.flatMap((d) => listFiles(`public/legacy/modules/${d}/`));
+    const copies = MANAGED.flatMap((d) => listFiles(`public/modules/${d}/`));
     expect(
-      copies.map((f) => f.replace("public/legacy/modules/", "lib/")),
+      copies.map((f) => f.replace("public/modules/", "lib/")),
       hint,
     ).toEqual(libFiles);
     for (const f of libFiles) {
-      const copy = f.replace("lib/", "public/legacy/modules/");
+      const copy = f.replace("lib/", "public/modules/");
       expect(norm(read(copy)), `${copy}：${hint}`).toBe(norm(read(f)));
     }
   });
 
   it("modules/ 只有受管理子目錄與 bridge.js；bridge.js 只 import 兩個 index.js", () => {
-    expect(readdirSync(new URL("public/legacy/modules/", ROOT)).sort()).toEqual(
+    expect(readdirSync(new URL("public/modules/", ROOT)).sort()).toEqual(
       ["bridge.js", ...MANAGED].sort(),
     );
-    const imports = [...read("public/legacy/modules/bridge.js").matchAll(/from\s+["']([^"']+)["']/g)].map(
+    const imports = [...read("public/modules/bridge.js").matchAll(/from\s+["']([^"']+)["']/g)].map(
       (m) => m[1],
     );
     expect(imports).toEqual(["./player/index.js", "./landmarks/index.js"]);

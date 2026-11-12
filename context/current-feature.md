@@ -1,16 +1,35 @@
-# Current Feature
+# Current Feature: 3.9 頁面改為根路徑 /index.html
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- `GET /index.html` → 200（舊 Client），`GET /` → 307 `Location: /index.html`，`/legacy/index.html` → 404
+- `git mv` 把 `index.html`、`js/`、`styles/`、`modules/` 從 `public/legacy/` 搬到 `public/`（內容不變）；`public/legacy/temp-core/` 不動
+- `index.html` 的 4 個 temp-core `src` 改為 `legacy/temp-core/…`（行數不變）
+- `next.config.mjs` 轉址目的地改 `/index.html`；`eslint.config.mjs` 忽略清單、`scripts/sync-legacy-modules.mjs` 目的地（`public/modules`）同步
+- 測試改新路徑並新增 E1–E3；基準 103／361ms／96 不變
+- 文件同步（README、docs/privacy.md、docs/client-server-boundary.md、路線圖 3.9 列）
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+- Spec: `context/features/3-9-root-index-html.md`（Opus 撰寫）
+- 未決事項採預設：不保留 `/legacy/index.html` 相容轉址；`AGENTS.md:62` 路徑修改待使用者同意（暫不改）
+- 仍不可部署（temp-core 與部署防線保留）
+
+驗證結果：
+- Baseline（動工前）：build 成功、`REQUIRE_BASELINE=1 npm test` 185 通過
+- 完成後：lint 無錯；build 成功；`VERCEL=1 npm run build` 仍失敗（訊息含 temp-core）；`REQUIRE_BASELINE=1 npm test` 188 通過（新增 E1–E3），基準 103／361ms／96 不變；`npm run sync:legacy` 後無內容差異
+- `git diff -M`：15 個檔案，除 `index.html` 4 行 `src` 外皆 100% rename；temp-core、lib、app、package.json 未動
+- curl：`/` 307→`/index.html`；`/index.html` 200；`/legacy/index.html`、`/legacy/js/*` 404；`/js`、`/styles`、`/modules`、`/legacy/temp-core` 資源 200，JS 為 application/javascript
+- Playwright：`/` 落在 `/index.html`；本站資源皆 200、無 404；console 0 error（僅 Tailwind CDN warning）；`window.RFA` 存在且 frozen
+- 故意改錯：`index.html` 一個 src 改回 `temp-core/` → E2 與載入測試失敗；改 `lib/player/stride-input.js` → B1 失敗並提示 `npm run sync:legacy`；皆已還原。不帶變數 `npm test` 187 通過、1 skipped（baseline 未強制）。`/legacy/modules/bridge.js` 404
+- 順手 UI 修正（使用者回報，應拆獨立 `fix:` commit）：核心二骨架頭被圖例遮住 → `public/js/renderer.js` `groundY`／`badgeY` 402→462，`public/index.html` simCanvas 高 420→480；Playwright 截圖確認，僅看單一相位
+- Opus review：搬移零行為變更、測試有效；已補 boundary 文件對 temp-core 檔頭過時的註記。README「3.1–3.4 完成」待 complete 時更新
+- 未驗：影片擷取、切 Profile、播放、拖入影片等互動（檔案內容與 3.4 逐位元組相同，僅路徑變動）；bundle 核心字串掃描
+- 待使用者決定：`AGENTS.md:62` 的 `public/legacy/js/config.js` 改為 `public/js/config.js`（未改）；temp-core 檔頭「只由 public/legacy/index.html 載入」已過時（不得修改，3.7 刪除）
 
 ## History
 

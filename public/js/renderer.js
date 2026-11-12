@@ -23,7 +23,7 @@ function drawSimulator() {
   const H = simCanvas.height;
   simCtx.clearRect(0, 0, W, H);
 
-  const groundY = 402;
+  const groundY = 462;
   const originX = W * 0.48;
   const p = (((cyclePct % 100) + 100) % 100) / 100;
 
@@ -223,7 +223,7 @@ function drawSimulator() {
   const badgeH = 26;
   const badgeX = W - badgeW - 12;
   // 右上角已有 HTML 資訊卡（循環播放中／階段標題），狀態牌移到地面線上方避免被遮住
-  const badgeY = 402 - badgeH - 8;
+  const badgeY = 462 - badgeH - 8;
 
   simCtx.fillStyle = isStance
     ? "rgba(244, 63, 94, 0.20)"

@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-Epic 0–2、3.1–3.4 完成（3.4：角度擷取與骨架運動學等共用模組改為 `lib/player/`、`lib/landmarks/` 單一來源，經 `npm run sync:legacy` 同步到 `public/legacy/modules/` 並以 `window.RFA` 橋接；修改這兩個目錄後須重新同步）；`/` 導向原樣搬入的舊 Client（`/legacy/index.html`，含暫時核心，**3.7 完成前不可部署**）。3.3 起，影片擷取完成時會把 landmarks 上傳到 `/api/analyze`（不送 `profileName`）；無影片的模擬擷取、JSON 匯入、手動調整與遙測仍在瀏覽器本地計算（3.5–3.7 處理）。尚未部署（Epic 4）。路線圖見 [docs/planning/epics-and-features.md](docs/planning/epics-and-features.md)。
+Epic 0–2、3.1–3.4 完成（3.4：角度擷取與骨架運動學等共用模組改為 `lib/player/`、`lib/landmarks/` 單一來源，經 `npm run sync:legacy` 同步到 `public/modules/` 並以 `window.RFA` 橋接；修改這兩個目錄後須重新同步）；`/` 導向舊 Client（`/index.html`，檔案在 `public/` 根目錄，`npm run dev` 後開 `http://localhost:3000/index.html`；暫時核心仍在 `public/legacy/temp-core/`，**3.7 完成前不可部署**）。3.3 起，影片擷取完成時會把 landmarks 上傳到 `/api/analyze`（不送 `profileName`）；無影片的模擬擷取、JSON 匯入、手動調整與遙測仍在瀏覽器本地計算（3.5–3.7 處理）。尚未部署（Epic 4）。路線圖見 [docs/planning/epics-and-features.md](docs/planning/epics-and-features.md)。
 
 ## 開發
 
