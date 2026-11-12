@@ -30,12 +30,12 @@ function captureSkeletonSnapshots(pcts) {
       cyclePct = pct;
       drawSimulator();
       const off = document.createElement("canvas");
-      off.width = simCanvas.width;
-      off.height = simCanvas.height;
+      off.width = SIM_SIZE.w;
+      off.height = SIM_SIZE.h;
       const ctx = off.getContext("2d");
       ctx.fillStyle = "#0b0f19";
       ctx.fillRect(0, 0, off.width, off.height);
-      ctx.drawImage(simCanvas, 0, 0);
+      ctx.drawImage(simCanvas, 0, 0, SIM_SIZE.w, SIM_SIZE.h);
       out.push(off.toDataURL("image/png"));
     });
   } finally {

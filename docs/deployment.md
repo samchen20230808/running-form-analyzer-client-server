@@ -56,7 +56,7 @@ npm run smoke -- --base-url https://<專案>.vercel.app --rate-limit
 - R2（偽造 `X-Forwarded-For`）：偽造後仍 429 → PASS；回 200 時會再送一次不帶 XFF 的對照請求，對照仍 429 才判 FAIL（IP 可被偽造、限流可被繞過，請回報，另開 `fix-` 處理），對照也是 200 則只報 INFO（可能換了 instance），請重跑。
 - R1 在部署環境未觸發 429 只算 INFO（可能分散在多個 instance，見第 7 節）。
 
-瀏覽器手動檢查：開 `/`（應落在 `/index.html`）；DevTools console 無 error、Network 無 4xx（第三方 CDN 除外）；選影片擷取後出現一次 `POST /api/analyze` 200；切換 Profile、播放骨架、拖入影片、匯入 JSON、手動步頻、匯出報告都可用。
+瀏覽器手動檢查：開 `/`（應落在 `/index.html`）；DevTools console 無 error、Network 無 4xx（第三方 CDN 除外）；選影片擷取後出現一次 `POST /api/analyze` 200；切換 Profile、播放骨架、拖入影片、匯入 JSON、手動步頻、匯出報告都可用。手機實機檢查見 `context/features/5-1-mobile-ui.md` 第 9 節。
 
 把 smoke 輸出（可去掉網址）交給 agent，填入第 10 節。
 

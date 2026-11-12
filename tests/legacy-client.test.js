@@ -1,5 +1,6 @@
 // 舊 Client（public/）的靜態檢查。斷言刻意粗糙（存在性、字串包含）。
 // 3.7：temp-core 與部署防線已移除；衍生值改讀 /api/derive，瀏覽器不含任何核心公式。
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../lib/config.js";
@@ -374,5 +375,163 @@ describe("匯出 JSON 檔名（buildExportFileName）", () => {
   });
   it("X5 exportAnalysisJSON 使用該函式", () => {
     expect(src).toContain("a.download = buildExportFileName(profile, activeProfileKey, new Date());");
+  });
+});
+
+describe("W 5.1 手機版 UI", () => {
+  const START = "/* 5.1 手機版 RWD：開始 */";
+  const END = "/* 5.1 手機版 RWD：結束 */";
+  const MAIN_CSS_BASE_SHA256 = "7a2a82dd8a90e8f8f9a559a808129507b2b0fdd107d9509fd83a661025509b7e";
+  const QUERY_T = "@media screen and (max-width: 1023.98px), screen and (pointer: coarse)";
+  const QUERY_P = "@media screen and (max-width: 639.98px)";
+  const QUERY_H = "@media screen and (hover: none) and (pointer: coarse)";
+  const css = read("public/styles/main.css").replace(/\r\n/g, "\n");
+  const html = read("public/index.html");
+  const block = css.slice(css.indexOf(START) + START.length, css.indexOf(END));
+  const outside = css.slice(0, css.indexOf(START)).trimEnd();
+
+  // 區段內的 @media 區塊：[{ query, body }]
+  function mediaBlocks() {
+    const out = [];
+    const re = /(@media[^{]+)\{/g;
+    let m;
+    while ((m = re.exec(block))) {
+      let depth = 1;
+      let i = re.lastIndex;
+      while (depth > 0 && i < block.length) {
+        if (block[i] === "{") depth++;
+        else if (block[i] === "}") depth--;
+        i++;
+      }
+      out.push({ query: m[1].trim(), body: block.slice(re.lastIndex, i - 1) });
+      re.lastIndex = i;
+    }
+    return out;
+  }
+  const selectorsOf = (body) =>
+    [...body.matchAll(/([^{}]+)\{/g)].flatMap((m) => m[1].split(",").map((s) => s.trim()));
+
+  it("W1 viewport 不禁止縮放", () => {
+    const metas = html.match(/<meta[^>]*name="viewport"[^>]*>/g) ?? [];
+    expect(metas).toHaveLength(1);
+    expect(metas[0]).toContain("width=device-width");
+    expect(metas[0]).toContain("initial-scale=1");
+    expect(metas[0]).not.toContain("user-scalable");
+    expect(metas[0]).not.toContain("maximum-scale");
+  });
+
+  it("W2 區段標記存在於檔尾且含必要宣告", () => {
+    expect(css.split(START)).toHaveLength(2);
+    expect(css.split(END)).toHaveLength(2);
+    expect(css.indexOf(START)).toBeLessThan(css.indexOf(END));
+    expect(css.slice(css.indexOf(END) + END.length).trim()).toBe("");
+    for (const s of ["min-height: 44px", "font-size: 16px", "touch-action: pan-y", "touch-action: manipulation"]) {
+      expect(block).toContain(s);
+    }
+  });
+
+  it("W3 區段外逐字不變；區段內規則全在三個 screen 查詢內", () => {
+    expect(createHash("sha256").update(outside).digest("hex")).toBe(MAIN_CSS_BASE_SHA256);
+    const blocks = mediaBlocks();
+    expect(blocks.map((b) => b.query)).toEqual([QUERY_T, QUERY_P, QUERY_H]);
+    // 去掉 @media 區塊後不得剩下任何規則
+    let rest = block.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const b of blocks) rest = rest.replace(`${b.query} {${b.body}}`, "");
+    expect(rest.trim()).toBe("");
+    expect(block).not.toContain("print");
+    expect(block).not.toContain("!important");
+  });
+
+  it("W4 列印樣式維持單一區塊；報告選擇器只在 P 查詢內", () => {
+    expect(outside.match(/@media print/g)).toHaveLength(1);
+    for (const b of mediaBlocks()) {
+      const rp = selectorsOf(b.body).filter((s) => s.startsWith(".rp-") || s.startsWith("#reportOverlay"));
+      if (b.query !== QUERY_P) expect(rp).toEqual([]);
+    }
+  });
+
+  it("W5 選擇器範圍與 id 對應", () => {
+    const ids = new Set();
+    for (const b of mediaBlocks()) {
+      for (const sel of selectorsOf(b.body)) {
+        const ok = sel.startsWith("#") || (b.query === QUERY_P && sel.startsWith(".rp-"));
+        expect(ok, sel).toBe(true);
+        for (const m of sel.matchAll(/#([A-Za-z][\w-]*)/g)) ids.add(m[1]);
+      }
+    }
+    // reportOverlay 由 report.js 動態建立，其餘須在 index.html 恰出現一次
+    ids.delete("reportOverlay");
+    for (const id of ids) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+  });
+
+  it("W6 HTML 掛鉤", () => {
+    const hooks = [
+      "appHeader", "headerToolbar", "headerStrideGroup", "profileSelectGroup", "dashBanner",
+      "videoHud", "liveSyncLabel", "dropHintDesktop", "coreTwoCard", "simStage", "simLegend",
+      "simHud", "phaseBtnGrid", "kpiGrid", "phaseTimingPanel", "waveStage", "diagLegend",
+    ];
+    for (const id of hooks) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+    for (const id of ["dropHintTouch", "videoCaptureLabel", "videoCaptureLabelBar"]) {
+      const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0];
+      expect(tag).toMatch(/class="hidden /);
+    }
+    expect(html).toContain("styles/main.css?v=5.1");
+    expect(html).toMatch(/<canvas\s+id="simCanvas"\s+width="700"\s+height="480"/);
+    expect(html).toMatch(/<canvas\s+id="waveCanvas"\s+width="720"\s+height="150"/);
+  });
+
+  it("W7 檔案輸入：capture 只在兩個拍攝 input", () => {
+    const inputs = html.match(/<input[^>]*type="file"[^>]*>/g) ?? [];
+    expect(inputs.filter((t) => t.includes('accept="video/*"'))).toHaveLength(5);
+    const cap = inputs.filter((t) => t.includes("capture"));
+    expect(cap).toHaveLength(2);
+    for (const t of cap) {
+      expect(t).toContain('capture="environment"');
+      expect(t).toContain('onchange="handleVideoUpload(event)"');
+    }
+    expect(cap.some((t) => t.includes('id="videoCaptureInput"'))).toBe(true);
+    expect(cap.some((t) => t.includes('id="videoCaptureInputBar"'))).toBe(true);
+    const json = inputs.find((t) => t.includes('id="jsonImportInput"'));
+    expect(json).toContain(".json");
+    expect(json).toContain("application/json");
+  });
+
+  it("W8 畫布解析度改讀邏輯尺寸", () => {
+    const r = read("public/js/renderer.js");
+    for (const s of ["devicePixelRatio", "ResizeObserver", "setTransform", "SIM_SIZE", "WAVE_SIZE"]) {
+      expect(r).toContain(s);
+    }
+    expect(r).not.toMatch(/const W = (simCanvas|waveCanvas)\.width/);
+    const rep = read("public/js/report.js");
+    expect(rep).not.toContain("off.width = simCanvas.width");
+    expect(rep).toContain("ctx.drawImage(simCanvas, 0, 0, SIM_SIZE.w, SIM_SIZE.h);");
+    expect(r.indexOf("simCtx.setTransform")).toBeLessThan(r.indexOf("simCtx.clearRect"));
+    expect(r).toContain("const W = SIM_SIZE.w;");
+  });
+
+  it("W9 觸控拖曳用 Pointer Events", () => {
+    const ui = read("public/js/ui.js");
+    for (const s of ["pointerdown", "pointercancel", "setPointerCapture", 'pointerType === "mouse"', "jumpToCyclePct("]) {
+      expect(ui).toContain(s);
+    }
+    for (const f of listFiles("public/js/", ".js")) {
+      const src = read(f);
+      expect(src, f).not.toContain("touchstart");
+      expect(src, f).not.toContain("touchmove");
+      expect(src, f).not.toMatch(/['"]mousedown['"]|onmousedown/);
+    }
+    const down = ui.slice(ui.indexOf('addEventListener("pointerdown"'));
+    expect(down.slice(0, 200)).toContain('pointerType === "mouse"');
+    expect(ui).toContain('getElementById("simCanvas")');
+    expect(ui.replace('getElementById("simCanvas")', "")).not.toMatch(/\bsimCanvas\b/);
+  });
+
+  it("W10 影片解碼失敗提示", () => {
+    const ui = read("public/js/ui.js");
+    const fn = ui.slice(ui.indexOf("function loadVideoFile"), ui.indexOf("function setRunDirection"));
+    expect(fn).toContain("sourceVideo.onerror");
+    expect(fn).toContain("sourceVideo.src !== url");
+    expect(fn).toContain('getElementById("videoEmptyOverlay").classList.remove("hidden")');
+    expect(fn).toContain("URL.revokeObjectURL(url)");
   });
 });

@@ -59,13 +59,14 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="styles/main.css?v=3.1" />
+    <link rel="stylesheet" href="styles/main.css?v=5.1" />
   </head>
   <body
     class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white"
   >
     <!-- Top Navigation (包含 App Icon) -->
     <header
+      id="appHeader"
       class="sticky top-0 z-40 border-b border-slate-800 bg-bgPrimary/95 backdrop-blur-md px-4 lg:px-8 py-3"
     >
       <div
@@ -101,7 +102,7 @@
         </div>
 
         <!-- Action Toolbar -->
-        <div class="flex flex-wrap items-center gap-2">
+        <div id="headerToolbar" class="flex flex-wrap items-center gap-2">
           <div
             class="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1 text-xs gap-1.5"
           >
@@ -119,6 +120,7 @@
           </div>
 
           <div
+            id="headerStrideGroup"
             class="flex items-center bg-slate-900/90 border border-purple-500/40 rounded-lg px-2.5 py-1 text-xs gap-1.5 shadow-sm"
           >
             <span class="text-purple-300 font-medium">步幅:</span>
@@ -162,13 +164,14 @@
             <input
               type="file"
               id="jsonImportInput"
-              accept=".json"
+              accept=".json,application/json"
               class="hidden"
               onchange="importAnalysisJSON(event)"
             />
           </label>
 
           <div
+            id="profileSelectGroup"
             class="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-1 text-xs"
           >
             <span class="text-slate-400 px-2 hidden sm:inline">模型：</span>
@@ -216,6 +219,7 @@
     >
       <!-- Dashboard Banner -->
       <div
+        id="dashBanner"
         class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center shadow-lg"
       >
         <div class="lg:col-span-4 flex items-center gap-3">
@@ -397,6 +401,23 @@
                   onchange="handleVideoUpload(event)"
                 />
               </label>
+              <label
+                id="videoCaptureLabelBar"
+                class="hidden px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer transition items-center gap-1.5"
+              >
+                <span>📹 拍攝影片</span>
+                <small class="block text-[10px] font-normal opacity-80"
+                  >可能不會自動存入相簿</small
+                >
+                <input
+                  type="file"
+                  id="videoCaptureInputBar"
+                  accept="video/*"
+                  capture="environment"
+                  class="hidden"
+                  onchange="handleVideoUpload(event)"
+                />
+              </label>
             </div>
           </div>
 
@@ -453,9 +474,18 @@
                   />
                 </svg>
               </div>
-              <h3 class="text-sm font-bold text-white mb-1 pointer-events-none">
+              <h3
+                id="dropHintDesktop"
+                class="text-sm font-bold text-white mb-1 pointer-events-none"
+              >
                 直接將跑步影片「拖拉 (Drag & Drop)」至此處
               </h3>
+              <p
+                id="dropHintTouch"
+                class="hidden text-sm font-bold text-white mb-1 pointer-events-none"
+              >
+                點下方按鈕選擇或拍攝跑步影片
+              </p>
               <p class="text-xs text-slate-400 max-w-md mb-4 leading-relaxed pointer-events-none">
                 可先用進度條或影格按鈕停在乾淨畫面，點擊擷取時系統會<strong>以當前影格為起點自動 0.25x 慢速掃描</strong
                 >！
@@ -472,6 +502,23 @@
                     onchange="handleVideoUpload(event)"
                   />
                 </label>
+                <label
+                  id="videoCaptureLabel"
+                  class="hidden px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer shadow-lg transition pointer-events-auto"
+                >
+                  <span>📹 拍攝影片</span>
+                  <small class="block text-[10px] font-normal opacity-80"
+                    >拍攝的影片可能不會自動存入相簿</small
+                  >
+                  <input
+                    type="file"
+                    id="videoCaptureInput"
+                    accept="video/*"
+                    capture="environment"
+                    class="hidden"
+                    onchange="handleVideoUpload(event)"
+                  />
+                </label>
                 <button
                   onclick="startSimulatedVideoFeed()"
                   class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition pointer-events-auto"
@@ -482,6 +529,7 @@
             </div>
 
             <div
+              id="videoHud"
               class="absolute top-3 left-3 bg-slate-900/90 border border-slate-700/80 rounded-lg px-3 py-2 text-[11px] font-mono space-y-1 pointer-events-none"
             >
               <div class="flex items-center gap-2">
@@ -526,6 +574,7 @@
             </div>
 
             <label
+              id="liveSyncLabel"
               class="absolute bottom-3 right-3 bg-slate-900/90 border border-cyan-500/40 rounded-lg px-2.5 py-1.5 text-[11px] text-cyan-300 flex items-center gap-1.5 cursor-pointer shadow-lg"
             >
               <input
@@ -603,6 +652,7 @@
 
         <!-- RIGHT 6 COLS: 核心二 -->
         <div
+          id="coreTwoCard"
           class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
         >
           <div
@@ -642,6 +692,7 @@
           </div>
 
           <div
+            id="simStage"
             class="relative flex-1 min-h-[360px] sm:min-h-[420px] cyber-grid flex items-center justify-center overflow-hidden"
           >
             <canvas
@@ -653,6 +704,7 @@
 
             <!-- 左上角圖例框 (四階段經典色) -->
             <div
+              id="simLegend"
               class="absolute top-2.5 left-2.5 max-w-[calc(55%-0.625rem)] bg-slate-900/90 border border-slate-800/90 rounded-lg px-2.5 py-2 text-[10px] space-y-1 pointer-events-none backdrop-blur-xs shadow-lg"
             >
               <div class="flex items-center gap-1.5">
@@ -704,6 +756,7 @@
             </div>
 
             <div
+              id="simHud"
               class="absolute top-2.5 right-2.5 max-w-[calc(45%-0.625rem)] bg-slate-900/85 border border-slate-800/90 rounded-lg px-2.5 py-1.5 text-right pointer-events-none backdrop-blur-xs"
             >
               <div
@@ -789,7 +842,7 @@
             </div>
 
             <!-- 四階段切換按鈕 (①紅 ➔ ②黃 ➔ ③藍 ➔ ④紫) -->
-            <div class="grid grid-cols-4 gap-1.5">
+            <div id="phaseBtnGrid" class="grid grid-cols-4 gap-1.5">
               <button
                 id="phaseBtn0"
                 onclick="jumpToRunnerPhase('touch')"
@@ -934,7 +987,7 @@
           </div>
 
           <!-- 7 大核心生物力學指標面板 -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div id="kpiGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div
               class="bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5 flex flex-col justify-between"
             >
@@ -1165,6 +1218,7 @@
 
         <!-- 右側：右腿步態波形圖 ＋ 個人化階段百分比 vs 徐國峰比對面板 -->
         <div
+          id="phaseTimingPanel"
           class="lg:col-span-6 bg-bgCard border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3"
         >
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -1243,6 +1297,7 @@
           </div>
 
           <div
+            id="waveStage"
             class="relative flex-1 min-h-[145px] w-full bg-slate-950/70 rounded-xl border border-slate-800/80 p-2"
           >
             <canvas
@@ -1268,7 +1323,7 @@
               >當前檢視：★ 徐國峰教練 (黃金標準)</span
             >
           </div>
-          <div class="flex items-center gap-2 text-xs">
+          <div id="diagLegend" class="flex items-center gap-2 text-xs">
             <span class="text-slate-400 text-[11px] font-medium">燈號圖例：</span>
             <span
               class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold"
