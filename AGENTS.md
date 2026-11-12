@@ -43,7 +43,7 @@
 
 ## 版本控制
 
-- 一個 Feature 一個 branch，命名 `feature-<名稱>` 或 `fix-<名稱>`；預設分支為 `master`。
+- 一個 Feature 一個 branch，命名 `feature-<名稱>` 或 `fix-<名稱>`；預設分支為 `main`。
 - 使用 conventional commit（feat:、fix:、refactor:、docs:、chore:）。
 - 驗證通過前不 commit。
 - `/feature complete` 會 commit 並合併回預設分支，但**不會 push**；push 須使用者明確要求。

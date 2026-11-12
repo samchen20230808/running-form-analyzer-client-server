@@ -65,7 +65,7 @@ Execute the requested action: $ARGUMENTS
 ### If action is "review":
 
 1. Read current-feature.md to understand the goals
-2. Review all changes (`git diff master`)
+2. Review all changes (`git diff main`)
 3. Check for:
    - ✅ Goals met
    - ❌ Goals missing or incomplete
@@ -79,7 +79,7 @@ Execute the requested action: $ARGUMENTS
 ### If action is "explain":
 
 1. Read current-feature.md
-2. Run `git diff master --name-only`
+2. Run `git diff main --name-only`
 3. For each file: path + 1-2 sentence explanation (new / modified), key functions
 4. End with a brief summary of how the pieces fit together（含 Client／Server 邊界與 import 關係）
 
@@ -95,7 +95,7 @@ Execute the requested action: $ARGUMENTS
 
 1. 確認驗證已通過；否則停止
 2. Stage changes and commit with a conventional commit message
-3. Switch to master and merge the feature branch (**不 push**)
+3. Switch to main and merge the feature branch (**不 push**)
 4. Delete the local feature branch
 5. Reset current-feature.md and apply the History STAY vs MOVE rule:
    - H1 back to `# Current Feature`, clear Goals and Notes (keep placeholder comments)
