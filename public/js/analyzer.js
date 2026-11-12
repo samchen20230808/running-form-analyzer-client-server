@@ -204,12 +204,14 @@ function startServerAnalysis(seq, req) {
 
 // 套用擷取結果：依手動設定或自動偵測決定步幅，建立 custom_captured 並切換
 function applyCapturedResult(cadence, summary, cycleKeyframes) {
-  recalculateStrideForCameraMode(summary);
+  // 擷取後一律回到自動步幅；步幅由 switchProfile 觸發的 derive 套用（3.7）
+  isManualStride = false;
 
   RUNNER_PROFILES.custom_captured.cadence = cadence;
   RUNNER_PROFILES.custom_captured.summary = summary;
   // 重新擷取前一律清掉舊關鍵幀，避免新 summary 搭配舊關鍵幀
   delete RUNNER_PROFILES.custom_captured.cycleKeyframes;
+  delete RUNNER_PROFILES.custom_captured.derived;
   if (cycleKeyframes !== undefined && cycleKeyframes !== null) {
     const ck = RFA.player.normalizeCycleKeyframes(cycleKeyframes);
     if (ck.ok) {
@@ -309,55 +311,6 @@ async function requestServerAnalysis(seq, req) {
   }
 }
 
-function buildSafeSummaryFromJSON(data, cadenceVal) {
-  const safeSummary = {
-    trunkAngle: Number(data.summary.trunkAngle ?? 7.4),
-    comOffsetCm: Number(data.summary.comOffsetCm ?? 3.0),
-    touchdownKnee: Number(data.summary.touchdownKnee ?? 155),
-    minSwingKnee: Number(data.summary.minSwingKnee ?? 74),
-    pushOffExtensionDeg: Number(
-      data.summary.pushOffExtensionDeg ?? 14.5,
-    ),
-    avgElbow: Number(data.summary.avgElbow ?? 84),
-    footStrikeAngle: Number(data.summary.footStrikeAngle ?? 2),
-    hipRomDeg: Number(data.summary.hipRomDeg ?? 38),
-    strideMeters: Number(
-      data.strideMeters ?? data.summary.strideMeters ?? 0.95,
-    ),
-    _measuredPixelStride:
-      typeof data.summary._measuredPixelStride === "number"
-        ? data.summary._measuredPixelStride
-        : typeof data.summary.measuredStrideMeters === "number"
-          ? data.summary.measuredStrideMeters
-          : null,
-    _autoDetectedStatic: Boolean(
-      data.summary._autoDetectedStatic ??
-        (data.cameraMode === "static" ||
-          (data.summary.measuredStrideMeters && !data.isManualStride)),
-    ),
-    measuredStrideMeters:
-      typeof data.summary.measuredStrideMeters === "number"
-        ? data.summary.measuredStrideMeters
-        : typeof data.summary._measuredPixelStride === "number"
-          ? data.summary._measuredPixelStride
-          : null,
-  };
-
-  if (data.phaseTiming || data.summary.phaseTiming) {
-    safeSummary.phaseTiming = computePersonalizedPhaseTiming(
-      { phaseTiming: data.phaseTiming || data.summary.phaseTiming },
-      cadenceVal,
-    );
-  } else {
-    safeSummary.phaseTiming = computePersonalizedPhaseTiming(
-      safeSummary,
-      cadenceVal,
-    );
-  }
-
-  return safeSummary;
-}
-
 // 純函式：驗證分析結果 JSON 契約（不碰 DOM，可供 Server 共用）
 function validateAnalysisJSON(data) {
   const result = {
@@ -419,7 +372,7 @@ function importAnalysisJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
       const validation = validateAnalysisJSON(data);
@@ -436,7 +389,35 @@ function importAnalysisJSON(event) {
         const displayName = `📄 ${file.name}`;
         const cadenceVal = Number(data.cadence || 180);
 
-        // 1. 還原機位模式選擇
+        // 1. 補預設值並前置檢查（derive 驗證較嚴格，壞檔拒絕匯入）
+        const safeSummary = RFA.client.buildImportSummary(data);
+        const errs = RFA.client.checkImportInputs(safeSummary, cadenceVal);
+        if (errs.length) {
+          console.warn("匯入檔數值超出可分析範圍：", errs);
+          alert("此 JSON 的數值超出可分析範圍");
+          return;
+        }
+
+        // 2. 向 Server 正規化 phaseTiming；檔案沒有合法關鍵幀時一併取骨架（D7）
+        const fileCk =
+          data.cycleKeyframes !== undefined
+            ? RFA.player.normalizeCycleKeyframes(data.cycleKeyframes)
+            : null;
+        const needKf = !(fileCk && fileCk.ok);
+        const r = await postDerive(
+          RFA.client.buildDeriveBody(safeSummary, {
+            cadence: cadenceVal,
+            includeKeyframes: needKf,
+          }),
+        );
+        if (!r.ok) {
+          alert(r.message);
+          return;
+        }
+        // ★ 全專案唯一把 derive 的 phaseTiming 寫回 summary 的地方（phaseTiming 不冪等）
+        safeSummary.phaseTiming = r.data.phaseTiming;
+
+        // 3. 還原機位模式選擇
         if (
           data.cameraMode &&
           ["auto", "static", "tracking"].includes(data.cameraMode)
@@ -445,9 +426,6 @@ function importAnalysisJSON(event) {
           const camSelect = document.getElementById("cameraModeSelect");
           if (camSelect) camSelect.value = data.cameraMode;
         }
-
-        // 2. 構建完整防護的 safeSummary，完整保留相機與測量欄位
-        const safeSummary = buildSafeSummaryFromJSON(data, cadenceVal);
 
         RUNNER_PROFILES[dynamicKey] = attachEvalCycle({
           name: displayName,
@@ -462,22 +440,21 @@ function importAnalysisJSON(event) {
           summary: safeSummary,
         });
 
-        // 2.2：合法的 cycleKeyframes 掛到 Profile；不合法則警告，之後不顯示骨架（3.5 起無本地運動學退回）
-        if (data.cycleKeyframes !== undefined) {
-          const ckResult = RFA.player.normalizeCycleKeyframes(data.cycleKeyframes);
-          if (ckResult.ok) {
-            RUNNER_PROFILES[dynamicKey].cycleKeyframes = ckResult.keyframes;
-            console.info(
-              `已載入 cycleKeyframes（${ckResult.keyframes.frames.length} 幀）`,
-            );
-          } else {
-            console.warn(
-              "cycleKeyframes 不合法，將不顯示骨架：",
-              ckResult.errors,
-            );
-          }
+        // 合法的檔案關鍵幀優先；否則用 derive 補的骨架
+        let kfSource = fileCk && fileCk.ok ? fileCk : null;
+        if (!kfSource && r.data.cycleKeyframes !== undefined) {
+          kfSource = RFA.player.normalizeCycleKeyframes(r.data.cycleKeyframes);
+        }
+        if (kfSource && kfSource.ok) {
+          RUNNER_PROFILES[dynamicKey].cycleKeyframes = kfSource.keyframes;
+          console.info(
+            `已載入 cycleKeyframes（${kfSource.keyframes.frames.length} 幀）`,
+          );
         } else {
-          console.info("此檔沒有 cycleKeyframes，骨架不顯示");
+          console.warn(
+            "cycleKeyframes 不合法，將不顯示骨架：",
+            kfSource && kfSource.errors,
+          );
         }
 
         const selectEl = document.getElementById("profileSelect");
@@ -574,6 +551,7 @@ function exportAnalysisJSON() {
     phaseTiming: getActiveProfileTiming(),
     summary: profile.summary,
   };
+  if (isDerivedCurrent(profile)) payload.metrics = profile.derived.result.metrics;
   if (profile.cycleKeyframes) payload.cycleKeyframes = profile.cycleKeyframes;
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json",

@@ -38,7 +38,7 @@ describe("程式側", () => {
     expect(code).toContain('"derive failed"');
   });
 
-  it("public/ 不含 /api/derive（3.6 Client 不呼叫；3.7 移除此斷言）", () => {
+  it("D1 public/js/derive.js 呼叫 /api/derive", () => {
     const files = [];
     const walk = (dir) => {
       for (const e of readdirSync(new URL(dir, ROOT), { withFileTypes: true })) {
@@ -49,7 +49,7 @@ describe("程式側", () => {
     };
     walk("public/");
     expect(files.length).toBeGreaterThan(0);
-    for (const f of files) expect(read(f), f).not.toContain("/api/derive");
+    expect(read("public/js/derive.js")).toContain('"/api/derive"');
   });
 
   it("不讀 env、不寫檔、不對外連線、不用 cookie 或瀏覽器儲存", () => {
@@ -126,5 +126,18 @@ describe("文件側", () => {
 
   it("server-api.md 連到 privacy.md", () => {
     expect(api).toContain("](privacy.md");
+  });
+
+  it("D2 privacy.md 記載匯入上傳與 3.7 狀態，不再提 temp-core／過渡期", () => {
+    expect(privacy).toContain("匯入 JSON 時");
+    expect(privacy).toContain("summary");
+    expect(privacy).not.toContain("temp-core");
+    expect(privacy).not.toContain("過渡期（3.2 完成至 3.7 完成）");
+  });
+
+  it("D3 README 與 AGENTS.md 不再有不可部署或 temp-core 字樣", () => {
+    expect(read("README.md")).not.toContain("不可部署");
+    expect(read("README.md")).not.toContain("temp-core");
+    expect(read("AGENTS.md")).not.toContain("temp-core");
   });
 });

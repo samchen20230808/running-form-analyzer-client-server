@@ -1326,10 +1326,7 @@
     <script src="js/ui.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/pose.js"></script>
-    <script src="legacy/temp-core/biomechanics.js"></script><!-- 暫時：3.3 移除 -->
-    <script src="legacy/temp-core/keyframes.js"></script><!-- 暫時：3.3 移除 -->
-    <script src="legacy/temp-core/landmark-extract.js"></script><!-- 暫時：3.3 移除 -->
-    <script src="legacy/temp-core/cycle-analysis.js"></script><!-- 暫時：3.3 移除 -->
+    <script src="js/derive.js"></script>
     <script src="js/analyzer.js"></script><script type="module" src="modules/bridge.js"></script>
     <!-- report.js：3.4 搬入 -->
     <script>
@@ -1339,46 +1336,14 @@
         // 如果使用者在分析完成後切換機位模式，立即重新計算步幅與配速，不用重新擷取！
         const profile = RUNNER_PROFILES[activeProfileKey];
         if (profile && profile.summary) {
-          recalculateStrideForCameraMode(profile.summary);
+          // 切換機位一律回到自動步幅（沿用原重算的副作用），步幅由 derive 回應套用
+          isManualStride = false;
+          updateStrideModeUI();
+          scheduleDerive({ applyStride: true });
           updateTelemetryAndDiagnostics();
           drawSimulator();
           drawWaveform();
         }
-      }
-
-
-      function recalculateStrideForCameraMode(s) {
-        const heightCm =
-          parseFloat(document.getElementById("runnerHeightInput").value) || 172;
-
-        const profile = RUNNER_PROFILES[activeProfileKey];
-        const curCadence = profile?.cadence || 180;
-
-        const result = computeStrideForCameraMode(
-          s,
-          selectedCameraMode,
-          heightCm,
-          curCadence,
-        );
-
-        // 確保靜態像素測量值永久保存，避免切換模式時被抹除
-        if (
-          typeof s._measuredPixelStride !== "number" &&
-          typeof result.pixelVal === "number"
-        ) {
-          s._measuredPixelStride = result.pixelVal;
-        }
-        s.strideMeters = result.strideMeters;
-        s.measuredStrideMeters = result.measuredStrideMeters;
-        strideModeText = result.strideModeText;
-        isManualStride = false;
-        manualStrideValue = s.strideMeters;
-        const finalStride = Number(s.strideMeters || 0.95).toFixed(2);
-        const customEl = document.getElementById("customStrideInput");
-        if (customEl) customEl.value = finalStride;
-        const bannerEl = document.getElementById("bannerStrideInput");
-        if (bannerEl) bannerEl.value = finalStride;
-        updateStrideModeUI();
       }
 
 
@@ -1399,9 +1364,10 @@
 
       function resetStrideToAuto() {
         isManualStride = false;
+        updateStrideModeUI();
         const profile = RUNNER_PROFILES[activeProfileKey];
         if (profile && profile.summary) {
-          recalculateStrideForCameraMode(profile.summary);
+          scheduleDerive({ applyStride: true });
         }
         updateTelemetryAndDiagnostics();
         drawSimulator();
@@ -1409,11 +1375,9 @@
       }
 
       function onHeightInputChange() {
-        if (!isManualStride) {
-          const profile = RUNNER_PROFILES[activeProfileKey];
-          if (profile && profile.summary) {
-            recalculateStrideForCameraMode(profile.summary);
-          }
+        const profile = RUNNER_PROFILES[activeProfileKey];
+        if (profile && profile.summary) {
+          scheduleDerive({ applyStride: !isManualStride });
         }
         updateTelemetryAndDiagnostics();
         drawSimulator();
@@ -1425,6 +1389,7 @@
         if (isNaN(parsed) || parsed < 100 || parsed > 240) return;
         const profile = RUNNER_PROFILES[activeProfileKey];
         profile.cadence = parsed;
+        scheduleDerive({ delayMs: DERIVE_DEBOUNCE_MS });
         updateTelemetryAndDiagnostics();
       }
 
@@ -1506,11 +1471,8 @@
         }
 
         // ★ 著地期 (Stance) vs 騰空期 (Flight) 狀態條與 GCT 比對更新
-        const activeProfile =
-          RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
-        const gct =
-          gctMetrics ||
-          computeGctMetrics(activeProfile.summary, activeProfile.cadence);
+        const gct = gctMetrics;
+        if (!gct) return; // 尚無 derive 結果：保留 DOM 現狀
 
         const gctRangeBadge = document.getElementById("gctRangeBadge");
         if (gctRangeBadge) {
@@ -1552,18 +1514,27 @@
         const s = profile.summary;
         const cadence = profile.cadence || 180;
         const timing = getActiveProfileTiming();
-        const gct = computeGctMetrics(s, cadence);
-
-        const heightCm =
-          parseFloat(document.getElementById("runnerHeightInput").value) || 172;
+        const derived = getActiveDerived();
+        const gct = derived ? derived.metrics.gct : null;
 
         document.getElementById("activeProfileBadge").textContent =
           profile.name;
+        const statusSuffix =
+          deriveStatus === "pending"
+            ? "（更新中…）"
+            : deriveStatus === "error"
+              ? `（⚠️ ${deriveErrorMessage}）`
+              : "";
         document.getElementById("diagSourceBadge").textContent =
-          `當前檢視：${profile.name}`;
+          `當前檢視：${profile.name}${statusSuffix}`;
+        for (const id of ["diagSourceBadge", "diagnosticCardsContainer", "overallScoreNum"]) {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle("opacity-60", deriveStatus !== "idle");
+        }
         document.getElementById("topCadenceInput").value = cadence;
 
         updatePhaseTimingUI(timing, gct);
+        if (!derived) return; // 尚無 derive 結果：只更新不依賴衍生值的部分
 
         let strideMeters;
         if (isManualStride) {
@@ -1572,7 +1543,7 @@
           strideMeters =
             typeof s.measuredStrideMeters === "number" && s.measuredStrideMeters > 0
               ? s.measuredStrideMeters
-              : computeAutoStrideMeters(s, heightCm, cadence);
+              : derived.autoStrideMeters;
           s.strideMeters = strideMeters;
           document.getElementById("customStrideInput").value =
             strideMeters.toFixed(2);
@@ -1624,7 +1595,7 @@
             : true;
         const isCadenceGood = isWalk || cadence >= 175;
 
-        const totalScore = calculateOverallRunningScore(s, cadence);
+        const totalScore = derived.metrics.overallScore;
         document.getElementById("overallScoreNum").textContent = totalScore;
         document.getElementById("overallScoreBar").style.width =
           `${totalScore}%`;
@@ -2091,6 +2062,7 @@
         initRunnerProfiles();
         applyAppConfig();
         updateStrideModeUI();
+        scheduleDerive();
         updateTelemetryAndDiagnostics();
         updateSimPhaseHUD();
         lastTimestamp = performance.now();

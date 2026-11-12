@@ -81,7 +81,7 @@
   "isManualStride": false,
   "phaseTiming": { },
   "summary": { },                  // 必填
-  "metrics": { },                  // Client 在 3.7 前仍忽略
+  "metrics": { },                  // Client 匯出時帶入（來自 derive）；匯入時忽略並重算
   "cycleKeyframes": { }            // 選填；2.2 起 Client 讀取，缺少或不合法時不顯示骨架並提示（3.5 起無本地運動學退回）
 }
 ```
@@ -135,7 +135,7 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 | `rating` | `walking`／`elite`／`good`／`long`／`excessive` |
 | `ratingText`、`advice`、`ratingColor` | 繁中顯示文字（含 emoji）與 Tailwind class；已知取捨：契約帶有顯示內容 |
 
-Client 3.7 前仍忽略 `metrics`（含 `gct`）。
+Client 3.7 起匯出時帶入 `metrics`（含 `gct`，僅在與目前輸入一致時），匯入時一律忽略並以 `/api/derive` 重算。
 
 注意：`computeGctMetrics` 的行走分支只看 `cadence < 135`，所以步頻 < 135 但被判為跑者時，`isWalking` 為 `false`，`gctMs` 仍用行走公式、`flightMs` 為 0（既有行為，照實輸出）。
 
@@ -210,6 +210,8 @@ Client 3.7 前仍忽略 `metrics`（含 `gct`）。
 欄位優先順序不變；匯出只新增 `schemaVersion`，所以新檔案舊版 Client 也能匯入。
 
 ## 修訂紀錄
+
+- 3.7：無格式變更。Client 開始產出 1.1.0 的匯出檔（`public/js/config.js` 的 `analysisSchemaVersion` 升為 `1.1.0`），匯出時帶 `metrics`（僅在與目前輸入一致時）；匯入時忽略 `metrics`，一律以 `/api/derive` 重算，且 `phaseTiming` 只在匯入時採用 derive 的回傳值。
 
 - 3.6：MINOR（1.1.0）。`metrics` 新增選填 `gct`（`computeGctMetrics` 完整物件）；既有欄位與數值不變，舊檔照常匯入，`validateAnalysisJSON` 僅擋 MAJOR > 1。新增 `POST /api/derive`，見 [server-api.md](server-api.md)。
 

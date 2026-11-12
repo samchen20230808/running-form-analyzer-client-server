@@ -195,11 +195,8 @@ function switchProfile(key) {
   activeProfileKey = key;
   livePoseOverride = null;
   document.getElementById("liveSyncToggle").checked = false;
-  if (!isManualStride) {
-    const s = RUNNER_PROFILES[key].summary;
-    if (s) {
-      recalculateStrideForCameraMode(s);
-    }
+  if (RUNNER_PROFILES[key].summary) {
+    scheduleDerive({ applyStride: !isManualStride });
   }
   updateTelemetryAndDiagnostics();
   if (!simPlaying) {

@@ -3,4 +3,5 @@
 import * as player from "./player/index.js";
 import * as landmarks from "./landmarks/index.js";
 import * as profiles from "./profiles/index.js";
-window.RFA = Object.freeze({ player, landmarks, profiles });
+import * as client from "./client/index.js";
+window.RFA = Object.freeze({ player, landmarks, profiles, client });
