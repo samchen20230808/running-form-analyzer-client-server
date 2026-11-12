@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "smoke": "node scripts/smoke-test.mjs",
     "sync:legacy": "node scripts/sync-legacy-modules.mjs",
     "bake:profiles": "node --import ./scripts/server-only-hook.mjs scripts/bake-profiles.mjs && node scripts/sync-legacy-modules.mjs"
   },

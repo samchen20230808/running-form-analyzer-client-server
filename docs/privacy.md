@@ -70,7 +70,7 @@
 
 ## 7. 部署平台
 
-部署在 Vercel 時，平台可能記錄請求 metadata（時間、路徑、狀態碼、IP、User-Agent 等），依 Vercel 的隱私政策與方案保留。本程式無法控制；4.1 部署後補上查證結果。
+部署在 Vercel 時，平台可能記錄請求 metadata（時間、路徑、狀態碼、IP、User-Agent 等），依 Vercel 的隱私政策與方案保留。本程式無法控制；範圍與保留期依 Vercel 方案，見 [deployment.md](deployment.md) 第 7 節（以官方說明為準）。本專案未啟用 Vercel Web Analytics、Speed Insights。
 
 ## 8. 第三方資源
 
@@ -80,7 +80,7 @@
 - `fonts.googleapis.com`、`fonts.gstatic.com`（Inter、JetBrains Mono、Noto Sans TC）
 - `cdn.jsdelivr.net`（`@mediapipe/{camera_utils,control_utils,drawing_utils,pose}` 的 script，以及選影片後由 `locateFile` 抓取的 wasm、`.data`、`.binarypb` 與 heavy 模型）
 
-對方可見使用者的 IP、User-Agent 與本站 origin（頁面未設 `Referrer-Policy`，瀏覽器預設 `strict-origin-when-cross-origin`）。**影片與 landmarks 不會送往這些第三方**：MediaPipe 在本機執行，CDN 只提供程式與模型檔。這些資源**未釘版本**，上游變動會直接改變行為。自託管或釘版留待 4.1 前處理。
+對方可見使用者的 IP、User-Agent 與本站 origin（頁面未設 `Referrer-Policy`，瀏覽器預設 `strict-origin-when-cross-origin`）。**影片與 landmarks 不會送往這些第三方**：MediaPipe 在本機執行，CDN 只提供程式與模型檔。這些資源**未釘版本**，上游變動會直接改變行為。自託管或釘版另開 Feature 處理，4.1 部署時仍未釘版（是否在那之前公開部署由使用者決定）。
 
 ## 9. Cookie 與瀏覽器儲存
 

@@ -64,7 +64,7 @@
 
 | Feature | 名稱             | 狀態    | 說明                                                                                           |
 | ------- | ---------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| 4.1     | Vercel 設定與驗證 | planned | **前置：3.7 已完成（`public/legacy/temp-core/` 已移除）**；頁面安全標頭／第三方資源釘版或自託管另開 Feature；Root Directory 為 repo 根目錄、Node 24.x、區域 `hnd1`；部署與環境變數由使用者操作；agent 準備文件與驗證腳本 |
+| 4.1     | Vercel 設定與驗證 | done | 新增 `vercel.json`（`regions: ["hnd1"]`）、兩個 API route 的 `maxDuration = 10`、`npm run smoke`（HTTP 檢查，可對本地或部署網址執行，含 `--rate-limit`／`--expect-region`）與 `docs/deployment.md`（使用者操作清單）；不需任何環境變數；頁面安全標頭／第三方資源釘版另開 Feature；部署與環境變數由使用者操作，部署實測紀錄待部署後補；規格見 [`4-1`](../../context/features/4-1-vercel-config-verification.md) |
 
 ## Epic 5 — PWA 與手機版 UI（最後階段）
 

@@ -1,12 +1,12 @@
 # Server API（`POST /api/analyze`、`POST /api/derive`）
 
-> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** 3.3 起舊 Client 在影片擷取完成時呼叫 `/api/analyze`（不送 `profileName`）；3.6 起提供 `/api/derive`，3.7 起 Client 在頁面載入、切換 profile、機位、身高、重設自動、手動步頻（debounce 400 ms）、擷取完成（1 次）與匯入（2 次）時呼叫，回應的 `phaseTiming` 只在匯入時被 Client 採用；部署見 4.1。
+> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** 3.3 起舊 Client 在影片擷取完成時呼叫 `/api/analyze`（不送 `profileName`）；3.6 起提供 `/api/derive`，3.7 起 Client 在頁面載入、切換 profile、機位、身高、重設自動、手動步頻（debounce 400 ms）、擷取完成（1 次）與匯入（2 次）時呼叫，回應的 `phaseTiming` 只在匯入時被 Client 採用；部署見 [deployment.md](deployment.md)。
 
 輸入影片擷取期間的 MediaPipe landmarks，輸出符合 [分析結果 JSON 契約 v1.1.0](analysis-json-contract.md) 的結果（含 `summary`、`metrics`、101 幀 `cycleKeyframes`）。
 
 ## 架構
 
-- `app/api/analyze/route.js`：只 export `runtime = "nodejs"` 與 `POST`，轉呼叫 `lib/server/http-handler.js` 的 `handleAnalyzeHttp`。
+- `app/api/analyze/route.js`：只 export `runtime = "nodejs"`、`maxDuration`（秒，部署平台讀取）與 `POST`，轉呼叫 `lib/server/http-handler.js` 的 `handleAnalyzeHttp`。
 - `app/api/derive/route.js`：同上，轉呼叫 `handleDeriveHttp`。
 - `lib/server/http-handler.js`：框架無關的 HTTP 流程（只用標準 `Request`／`Response`），兩個端點共用 `handleJsonPost`。
 - `lib/server/access-control.js`：存取控制**單一接入點**（`checkAccess`），實作 Origin／`Sec-Fetch-Site` 檢查與每 IP 限流（常數 `ACCESS_LIMITS`）；日後升級（Turnstile、登入）只替換此模組。
@@ -34,8 +34,8 @@
 ### 限流
 
 - 每 IP 每 60 秒 30 次（`/api/analyze` 與 `/api/derive` **共用同一個計數**），固定視窗；超過回 429＋`Retry-After`（秒，整數，≥ 1）。通過 Origin 檢查的請求一律計數（不論之後是 200 或 4xx）；被 403 拒絕的不計數。
-- IP 取自 `x-forwarded-for` 第一段 → `x-real-ip` → 共用桶 `unknown`。**只在 Vercel 為最外層時可信**（Vercel 會覆寫這兩個標頭，部署後於 4.1 實測）；本地 `next dev`／`next start` 的 XFF 可偽造，**不要把 `next start` 直接暴露在網路上**。
-- **僅盡力而為**，原因：計數只在單一 instance 記憶體中；Vercel 會依流量同時執行多個 instance（實際上限可能是 30 × instance 數）；冷啟動或 instance 回收會歸零；同一 NAT 後的使用者共用額度；最多追蹤 10,000 個 IP，滿時最早開窗的計數會被擠掉；IPv6 使用者可輕易換位址。需要嚴格限流時改用外部儲存（路線圖待處理：Upstash Redis）。
+- IP 取自 `x-forwarded-for` 第一段 → `x-real-ip` → 共用桶 `unknown`。**只在 Vercel 為最外層時可信**（Vercel 會覆寫這兩個標頭；部署後以 `npm run smoke -- --base-url <網址> --rate-limit` 的 R2 驗證，結果見 [deployment.md](deployment.md) 第 10 節）；本地 `next dev`／`next start` 的 XFF 可偽造，**不要把 `next start` 直接暴露在網路上**。
+- **僅盡力而為**，原因：計數只在單一 instance 記憶體中；Vercel 會依流量同時執行多個 instance（實際上限可能是 30 × instance 數；Fluid compute 讓同一 instance 處理多個並行請求，計數較集中，但仍不保證跨 instance）；冷啟動或 instance 回收會歸零；同一 NAT 後的使用者共用額度；最多追蹤 10,000 個 IP，滿時最早開窗的計數會被擠掉；IPv6 使用者可輕易換位址。需要嚴格限流時改用外部儲存（路線圖待處理：Upstash Redis）。
 
 ## 請求
 
@@ -73,7 +73,7 @@
 | 422 | `{ error: "insufficient_frames", acceptedFrames }` | 閘門收到的有效幀 < 8 |
 | 429 | `{ error: "rate_limited" }`＋`Retry-After` 標頭 | 超過每 IP 限流 |
 | 500 | `{ error: "internal_error" }` | 非預期例外；不回傳 stack 或訊息 |
-| 413（平台） | 由 Vercel 直接回應，不經本 API，格式不同 | body 超過平台上限約 4.5 MB；部署後（4.1）實測 |
+| 413（平台） | 由 Vercel 直接回應，不經本 API，格式不同 | body 超過平台上限約 4.5 MB；以 smoke 的 A13 驗證，見 [deployment.md](deployment.md) |
 
 與舊 Server 的刻意差異：Content-Type 改為嚴格比對 media type，以擋下不需 preflight 的跨站 simple request。其餘狀態碼與 body 與舊 Server 逐項相同（已用 13 個案例對照）。2.1 起另有：沒有 API Key／401／503；429 body 不含 `retryAfterSec`（改看 `Retry-After`）；新增 Origin 檢查 403。
 
