@@ -1,5 +1,6 @@
 // 3.2 過渡期：原樣搬入的舊 Client 與暫時核心（temp-core）的隔離與防線。
 // 斷言刻意粗糙（存在性、字串包含）。3.7 移除 temp-core 時，本檔須一併改寫。
+// 3.9 起頁面在 public/ 根目錄，temp-core 仍在 public/legacy/temp-core/。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../lib/config.js";
@@ -28,8 +29,8 @@ describe("temp-core 隔離與標示", () => {
     }
   });
 
-  it("核心檔名不出現在 public/legacy/js/", () => {
-    const files = readdirSync(new URL("public/legacy/js/", ROOT));
+  it("核心檔名不出現在 public/js/", () => {
+    const files = readdirSync(new URL("public/js/", ROOT));
     for (const f of CORE_FILES) expect(files).not.toContain(f);
   });
 
@@ -48,10 +49,10 @@ describe("temp-core 隔離與標示", () => {
     expect(hits.filter((l) => !l.trim().startsWith("//"))).toHaveLength(2);
   });
 
-  it("index.html 以 temp-core/ 載入四個核心，不再引用舊路徑", () => {
-    const html = read("public/legacy/index.html");
+  it("index.html 以 legacy/temp-core/ 載入四個核心，不再引用舊路徑", () => {
+    const html = read("public/index.html");
     for (const f of CORE_FILES) {
-      expect(html).toContain(`src="temp-core/${f}"`);
+      expect(html).toContain(`src="legacy/temp-core/${f}"`);
       expect(html).not.toContain(`src="js/${f}"`);
     }
   });
@@ -59,12 +60,12 @@ describe("temp-core 隔離與標示", () => {
 
 describe("舊 Client 的一致性", () => {
   it("config.js 的 version 與 lib/config.js 的 APP_CONFIG.version 相同", () => {
-    const m = read("public/legacy/js/config.js").match(/version:\s*"([^"]+)"/);
+    const m = read("public/js/config.js").match(/version:\s*"([^"]+)"/);
     expect(m?.[1]).toBe(APP_CONFIG.version);
   });
 
   it("不使用瀏覽器儲存與其他外送通道", () => {
-    const files = [...listFiles("public/legacy/", ".js"), "public/legacy/index.html"];
+    const files = [...listFiles("public/", ".js"), "public/index.html"];
     for (const p of files) {
       const src = read(p);
       for (const banned of [
@@ -82,22 +83,22 @@ describe("舊 Client 的一致性", () => {
     }
   });
 
-  it("fetch 只有一處：public/legacy/js/analyzer.js 的相對路徑 /api/analyze", () => {
+  it("fetch 只有一處：public/js/analyzer.js 的相對路徑 /api/analyze", () => {
     const hits = [];
-    for (const p of [...listFiles("public/legacy/", ".js"), "public/legacy/index.html"]) {
+    for (const p of [...listFiles("public/", ".js"), "public/index.html"]) {
       const lines = read(p).split(/\r?\n/);
       lines.forEach((l, i) => {
         if (/\bfetch\s*\(/.test(l)) hits.push({ p, text: `${l} ${lines[i + 1] ?? ""}` });
       });
     }
     expect(hits).toHaveLength(1);
-    expect(hits[0].p).toBe("public/legacy/js/analyzer.js");
+    expect(hits[0].p).toBe("public/js/analyzer.js");
     expect(hits[0].text).toContain('"/api/analyze"');
     expect(hits[0].text).not.toMatch(/https?:/);
   });
 
   it("上傳請求不含 profileName（含影片檔名），也不送 z", () => {
-    const src = read("public/legacy/js/analyzer.js");
+    const src = read("public/js/analyzer.js");
     const start = src.indexOf("async function requestServerAnalysis");
     const end = src.indexOf("function buildSafeSummaryFromJSON");
     const fn = src.slice(start, end);
@@ -107,7 +108,7 @@ describe("舊 Client 的一致性", () => {
   });
 
   it("上傳上限不超過 Server 的 LIMITS", () => {
-    const m = read("public/legacy/js/state.js").match(/MAX_UPLOAD_FRAMES\s*=\s*(\d+)/);
+    const m = read("public/js/state.js").match(/MAX_UPLOAD_FRAMES\s*=\s*(\d+)/);
     const max = Number(m?.[1]);
     expect(max).toBeGreaterThan(0);
     expect(max).toBeLessThanOrEqual(LIMITS.maxFrames);
@@ -115,10 +116,10 @@ describe("舊 Client 的一致性", () => {
   });
 
   it("customCycleFrames 死碼已刪除", () => {
-    for (const p of listFiles("public/legacy/", ".js")) {
+    for (const p of listFiles("public/", ".js")) {
       expect(read(p), p).not.toContain("customCycleFrames");
     }
-    expect(read("public/legacy/index.html")).not.toContain("customCycleFrames");
+    expect(read("public/index.html")).not.toContain("customCycleFrames");
   });
 
   it("public/ 中核心特有字串只出現在 temp-core/", () => {
@@ -127,7 +128,7 @@ describe("舊 Client 的一致性", () => {
       if (p.startsWith("public/legacy/temp-core/")) continue;
       expect(read(p), p).not.toContain(marker);
     }
-    expect(read("public/legacy/index.html")).not.toContain(marker);
+    expect(read("public/index.html")).not.toContain(marker);
   });
 });
 
@@ -166,7 +167,7 @@ describe("3.4 橋接與切換", () => {
   });
 
   it("C2 index.html 與 analyzer.js 同一行載入 bridge.js，且只有一次", () => {
-    const html = read("public/legacy/index.html");
+    const html = read("public/index.html");
     const tag = '<script type="module" src="modules/bridge.js"></script>';
     expect(html.split(tag)).toHaveLength(2);
     const line = html.split(/\r?\n/).find((l) => l.includes(tag));
@@ -181,7 +182,7 @@ describe("3.4 橋接與切換", () => {
       "normalizeCycleKeyframes",
       "parseManualStrideValue",
     ];
-    const files = [...listFiles("public/legacy/js/", ".js"), "public/legacy/index.html"];
+    const files = [...listFiles("public/js/", ".js"), "public/index.html"];
     for (const p of files) {
       const src = read(p);
       for (const n of names) {
@@ -197,9 +198,34 @@ describe("3.4 橋接與切換", () => {
       "computeGctMetrics",
       "calculateOverallRunningScore",
     ];
-    for (const p of listFiles("public/legacy/modules/", ".js")) {
+    for (const p of listFiles("public/modules/", ".js")) {
       for (const m of markers) expect(read(p), `${p}: ${m}`).not.toContain(m);
     }
+  });
+});
+
+describe("E 3.9 頁面位置", () => {
+  it("E1 public/legacy/ 只剩 temp-core，頁面與資源在 public/ 根目錄", () => {
+    expect(readdirSync(new URL("public/legacy/", ROOT))).toEqual(["temp-core"]);
+    for (const p of ["index.html", "js", "styles/main.css", "modules/bridge.js"]) {
+      expect(existsSync(new URL(`public/${p}`, ROOT)), p).toBe(true);
+    }
+    for (const p of ["index.html", "js", "modules", "styles"]) {
+      expect(existsSync(new URL(`public/legacy/${p}`, ROOT)), p).toBe(false);
+    }
+  });
+
+  it("E2 index.html 以 legacy/temp-core/ 各載入一次，不含失效的相對路徑", () => {
+    const html = read("public/index.html");
+    expect(html).not.toContain('src="temp-core/');
+    for (const f of CORE_FILES) {
+      expect(html.split(`src="legacy/temp-core/${f}"`).length - 1, f).toBe(1);
+    }
+  });
+
+  it("E3 轉址設定不含 /legacy", () => {
+    expect(read("next.config.mjs").match(/source:\s*"\/legacy/g)).toBeNull();
+    expect(read("next.config.mjs")).not.toContain('destination: "/legacy');
   });
 });
 
@@ -216,11 +242,11 @@ describe("部署防線", () => {
     await expect(import("../next.config.mjs?guard-on")).rejects.toThrow(/temp-core/);
   });
 
-  it("未設定 VERCEL 時正常載入，並把 / 導向 /legacy/index.html", async () => {
+  it("未設定 VERCEL 時正常載入，並把 / 導向 /index.html", async () => {
     delete process.env.VERCEL;
     const mod = await import("../next.config.mjs?guard-off");
     expect(await mod.default.redirects()).toEqual([
-      { source: "/", destination: "/legacy/index.html", permanent: false },
+      { source: "/", destination: "/index.html", permanent: false },
     ]);
   });
 });

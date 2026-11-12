@@ -58,7 +58,7 @@
 | 3.6     | 衍生值 API                   | planned | 契約 1.1.0（`metrics.gct` 完整物件）＋ `POST /api/derive`；只動 Server（D5、D6） |
 | 3.7     | Client 改讀衍生值並移除 temp-core | planned | UI 改讀 `metrics`／derive、移除 `public/legacy/temp-core/` 與 `VERCEL` 部署防線、bundle 檢查、改寫過渡期文件；完成後才可進 4.1 |
 | 3.8     | 報告匯出                     | planned | 原 3.4：舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心 |
-| 3.9     | 頁面改為根路徑 `/index.html` | planned | 使用者要求：`npm run dev` 後直接以 `http://localhost:3000/index.html` 開啟（現為 `/legacy/index.html`，`/` 307 導向）；規格階段決定作法（建議先評估「整包搬到 `public/` 根目錄並移除 `/`→legacy 轉址」或「只加 `/index.html` 轉址」），連動 `tests/legacy-client.test.js`、`scripts/sync-legacy-modules.mjs` 目的地、文件；建議排在 3.5 之前，避免後續 Feature 沿用舊路徑 |
+| 3.9     | 頁面改為根路徑 `/index.html` | done | 搬到 `public/` 根目錄（temp-core 留原處，`/` 307 → `/index.html`，舊路徑 404），見 `context/features/3-9-root-index-html.md`。原需求：`npm run dev` 後直接以 `http://localhost:3000/index.html` 開啟（現為 `/legacy/index.html`，`/` 307 導向）；規格階段決定作法（建議先評估「整包搬到 `public/` 根目錄並移除 `/`→legacy 轉址」或「只加 `/index.html` 轉址」），連動 `tests/legacy-client.test.js`、`scripts/sync-legacy-modules.mjs` 目的地、文件；建議排在 3.5 之前，避免後續 Feature 沿用舊路徑 |
 
 ## Epic 4 — 部署（單一 Vercel 專案）
 

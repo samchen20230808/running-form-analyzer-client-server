@@ -1,4 +1,4 @@
-// 3.4 橋接：把 lib/ 的瀏覽器共用模組複製到 public/legacy/modules/（保留相同目錄結構）。
+// 3.4 橋接：把 lib/ 的瀏覽器共用模組複製到 public/modules/（保留相同目錄結構）。
 // 手動執行：npm run sync:legacy。不掛在 build 上，漂移由 tests/browser-modules.test.js 偵測。
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = join(ROOT, "lib");
-const DEST = join(ROOT, "public", "legacy", "modules");
+const DEST = join(ROOT, "public", "modules");
 const MANAGED = ["player", "landmarks"]; // 相對於 lib/
 
 function listFiles(dir) {
@@ -46,4 +46,4 @@ mkdirSync(DEST, { recursive: true });
 for (const d of MANAGED) {
   cpSync(join(LIB, d), join(DEST, d), { recursive: true });
 }
-console.log(`sync:legacy 完成：${files.length} 個檔案 → public/legacy/modules/`);
+console.log(`sync:legacy 完成：${files.length} 個檔案 → public/modules/`);

@@ -59,7 +59,7 @@
 
 ## 版本設定
 
-- 版本號、系統名稱等集中於 `APP_CONFIG`；發版時才更新，並同步 `README.md`。過渡期 `public/legacy/js/config.js` 另有一份 `APP_CONFIG`，發版時須同步（版本號由 `tests/legacy-client.test.js` 把關）。
+- 版本號、系統名稱等集中於 `APP_CONFIG`；發版時才更新，並同步 `README.md`。過渡期 `public/js/config.js` 另有一份 `APP_CONFIG`，發版時須同步（版本號由 `tests/legacy-client.test.js` 把關）。
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -9,7 +9,10 @@ export default defineConfig([
     "node_modules/**",
     ".temp/**",
     "coverage/**",
-    // 舊全域 script（3.2 原樣搬入）；3.3／React 化時移除忽略
+    // 舊全域 script（3.2 原樣搬入，3.9 移到 public/ 根目錄）與同步副本；React 化時移除忽略
+    "public/js/**",
+    "public/modules/**",
+    // 暫時核心（3.7 刪除）
     "public/legacy/**",
   ]),
 ]);

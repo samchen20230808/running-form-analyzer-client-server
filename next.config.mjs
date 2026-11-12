@@ -9,9 +9,9 @@ if (process.env.VERCEL && existsSync(new URL("./public/legacy/temp-core", import
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
-  // 3.2 過渡期：/ 導向原樣搬入的舊 Client。React 化後移除。
+  // 過渡期：/ 導向舊 Client（3.9 起檔案在 public/ 根目錄）。React 化後移除。
   async redirects() {
-    return [{ source: "/", destination: "/legacy/index.html", permanent: false }];
+    return [{ source: "/", destination: "/index.html", permanent: false }];
   },
   // /api 全部回應（含 Next 自動回的 405／OPTIONS）都帶這些標頭。
   // 值與順序須與 lib/server/http-handler.js 的 RESPONSE_HEADERS 一致，由 tests/api-analyze-route.test.js 比對。
