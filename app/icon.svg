@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#0F172A"/><circle cx="19" cy="8" r="3" fill="#38BDF8"/><path d="M10 24l5-8 4 3 4-6" fill="none" stroke="#F8FAFC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- 深色圓角方形背景 (延續 icon.svg 底色) -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#131B2E" />
+
+  <!-- 頭部：亮青藍色圓點 (延續 icon.svg 配色與視覺重心) -->
+  <circle cx="70" cy="30" r="11" fill="#38BDF8" />
+
+  <!-- 雙臂：一筆畫圓角折線，呈現前擺與後擺的律動 -->
+  <path d="M 42 62 L 54 46 L 78 52 L 94 42" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- 軀幹與雙腿：延續折線語彙，表現前傾跨步與後腳蹬離的跑姿 -->
+  <path d="M 28 84 L 46 96 L 66 76 L 68 50 M 66 76 L 86 88 L 90 108" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
