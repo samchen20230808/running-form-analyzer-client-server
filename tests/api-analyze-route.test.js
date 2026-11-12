@@ -61,9 +61,12 @@ const throwingStream = () =>
 afterEach(() => vi.restoreAllMocks());
 
 describe("route 模組", () => {
-  it("runtime 為 nodejs，export 只有 POST 與 runtime", () => {
+  it("runtime 為 nodejs，maxDuration 為 1–60 秒整數，export 只有 POST、maxDuration、runtime", () => {
     expect(runtime).toBe("nodejs");
-    expect(Object.keys(routeModule).sort()).toEqual(["POST", "runtime"]);
+    expect(Number.isInteger(routeModule.maxDuration)).toBe(true);
+    expect(routeModule.maxDuration).toBeGreaterThanOrEqual(1);
+    expect(routeModule.maxDuration).toBeLessThanOrEqual(60);
+    expect(Object.keys(routeModule).sort()).toEqual(["POST", "maxDuration", "runtime"]);
   });
 });
 

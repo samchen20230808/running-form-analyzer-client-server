@@ -2,15 +2,31 @@
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- `vercel.json` 只含 `$schema` 與 `regions: ["hnd1"]`；Node 版本沿用 `package.json` `engines: "24.x"`。
+- `/api/analyze`、`/api/derive` 各 export `runtime = "nodejs"` 與 `maxDuration`（依本地 3000 幀實測決定，預設 10），route 測試與 V1–V4 把關。
+- 新增 `scripts/smoke-test.mjs` 與 `npm run smoke`：只用內建 `fetch`，對本地與部署網址皆可執行，輸出 PASS／FAIL／INFO，失敗 exit 1；`--rate-limit`、`--expect-region`、`--base-url`。
+- 新增 `tests/deploy-config.test.js`（V1–V4）。
+- 新增 `docs/deployment.md`（使用者操作清單，無 secret），同步 README、server-api、privacy、路線圖。
+- 不需任何環境變數；不執行 vercel／git push／部署。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+- Spec: `context/features/4-1-vercel-config-verification.md`（採第 15 節預設；第 16 節：使用者用 Hobby 方案；釘版不擋 4.1 完成；不把正式網址寫進 repo）。
+- 分支：`feature-vercel-config`。
+- Baseline（動手前）：`npm run build` 成功；`REQUIRE_BASELINE=1 npm test` 310 通過；基準 103／361ms／96 不變。
+- 平台查證（Vercel 官方 Functions Limits，2026-11-12）：請求／回應 body 4.5 MB；Hobby 記憶體 2 GB、`maxDuration` 預設與上限 300 s；預設區域 `iad1`，Hobby 單一區域；Next 16 `preferredRegion` deprecated，區域改由 `vercel.json`。
+- `maxDuration`：本地 `next start` 3000 幀（2.3 MB）合成請求 5 次：209／58／44／46／50 ms，最大 209 ms（< 2 s），採 10 秒。
+- 驗證結果：lint、build 通過（無 deprecation 警告）；`REQUIRE_BASELINE=1 npm test` 325 通過（+15：`tests/deploy-config.test.js`），基準不變；`git diff` 未動 `lib/`、`public/`、`next.config.mjs`；`package.json` 只多 `scripts.smoke`。
+- Production 本地（`next start -p 3100`，3000 埠被其他程式占用）：`npm run smoke` 18 PASS／0 FAIL（A13 為本 API 拒絕）；`--rate-limit` 累計第 31 次觸發 429、Retry-After 60，R2 本地 XFF 可偽造（INFO，符合文件）。
+- 故意改錯：`vercel.json` 改 `iad1` → V1 失敗；刪 derive `maxDuration` → route 測試失敗；build 時移除 `X-Frame-Options` 並以還原後的設定檔跑 smoke → A1 FAIL、exit 1；均已還原。規格預期 A3 也會失敗，實際不會（POST 標頭來自 `http-handler.js` 而非 `next.config.mjs`）。smoke 的期望標頭讀自目前的 `next.config.mjs`，與被測 server 的 build 不同時才抓得到。
+- Playwright（獨立 chromium，production build）：`/` 落在 `/index.html`、`window.RFA` 存在、console 0 error、本站請求無 4xx、切換 Profile 觸發 `/api/derive` 200、同源 fetch derive 200。Playwright MCP 被其他程序占用，改用 npx 快取中的 playwright-core。
+- 未驗：影片擷取、拖入影片、匯入 JSON、匯出報告等互動（本 Feature 不改 UI）；實際部署與部署後 smoke（由使用者操作，結果補進 `docs/deployment.md` 第 10 節）；平台 413 與 `x-vercel-id` 區域檢查只有假 fetch 單元測試。
+- Opus review：可 complete，已修：G1 只比 `x-vercel-id` 的 Function 區域（原 `includes` 會被同名邊緣 PoP 騙過）、R2 加不帶 XFF 的對照組避免換 instance 誤判、A13 上傳中被平台中斷連線改報 INFO、R1 遇非 200／429 直接 FAIL、拒絕空的 `--expect-region`；V4 改為斷言 18 個 PASS id，並補 A13／R1／R2／參數案例（測試 328 通過）；文件補 Deployment Protection 對帶 hash 網址的影響與 smoke 疑難排解。修後重跑 production smoke 仍 18 PASS，`--rate-limit` 結果同前。未處理：安全標頭若在 Vercel 被重複附加會造成 A3／A12 假 FAIL（已寫進疑難排解，需部署後才知道）。
+- 使用者提示：GitHub repo 先前是空的，需先自行 push 才能在 Vercel 匯入並偵測到 Next.js（Preset 顯示 Other 即為此因）。
 
 ## History
 
