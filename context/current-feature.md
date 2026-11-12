@@ -1,24 +1,16 @@
-# Current Feature: 3.8 報告匯出
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- 新增 `public/js/report.js`（`openReport`／`closeReport`），啟用「📄 匯出報告」按鈕，`window.print()` 另存 PDF
-- GCT 讀 `getActiveDerived().metrics.gct`、相位讀 `getActiveProfileTiming()`；匯出前 `isDerivedCurrent`＋`deriveStatus` 把關
-- 不發請求、不寫快取、不引入核心；Server 零變更、不新增依賴
-- 沿用 `main.css` 列印樣式；新增 Vitest R1–R5；Playwright P1–P9
-- 同步路線圖、boundary、privacy、README
+<!-- Goals appear here after /feature load -->
 
 ## Notes
 
-Spec: `context/features/3-8-report-export.md`（Opus 撰寫）。未決事項 9.1（預設印出影片檔名）暫採建議預設，待使用者確認。
-
-Baseline（動手前）：`npm run build` 成功；`npm test` 305 通過。
-
-驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 310 通過（新增 R1–R5）。Playwright（獨立 chromium 腳本，因 MCP 瀏覽器被佔用）對 `npm run dev`（3100）：console 0 error、無 4xx；P1 開報告 0 新請求、4 張 data:image/png、數值與主畫面一致；P8 圖層狀態還原；P6 title 改名與還原；P2 列印媒體主畫面 none／工具列 none／overlay static／白底；P3 PDF 與列印截圖存 scratchpad，目視排版正常；P4 walk 樣本 1 張骨架、無評分區塊；P7 derive 延遲時 alert 並拒絕，恢復後可開；`git diff --stat -- lib app package.json` 為空。Opus review：發現建報告失敗會留下無法關閉的空浮層，已改為先組內容再掛浮層；刪未使用變數、補強 R2、修文件過期敘述。未驗：P5（僅驗匯入 walk 樣本，未驗 client-*.json、模擬擷取、影片擷取後匯出）、P9 完整互動（切 Profile、播放、拖入影片）、P3 實體列印對話框、derive 429 情境、建報告失敗路徑僅靜態推論。
+<!-- Notes appear here after /feature load -->
 
 ## History
 
@@ -59,3 +51,9 @@ Baseline（動手前）：`npm run build` 成功；`npm test` 305 通過。
 新增 `lib/client/`（`buildDeriveBody`／`deriveKey`／`buildImportSummary`／`checkImportInputs`，經 `sync:legacy` 同步並掛 `RFA.client`）與 `public/js/derive.js`（`scheduleDerive`：手動步頻 debounce 400 ms、序號丟棄過時回應、逐 profile 記憶、記憶鍵排除 `summary.strideMeters`）。UI 9 處本地核心呼叫改讀 `/api/derive`（遙測、總分、GCT、狀態牌、波形、機位／身高／重設自動／手動步頻、擷取完成 1 次 derive）；匯入先前置檢查（步頻不在 (0, 400] 或數值絕對值 > 1000 拒絕並 alert），再 derive 取正規化 `phaseTiming`（全專案唯一寫回處）與缺少時的骨架，失敗不改狀態；匯出改 1.1.0 並帶 `metrics`。刪除 `public/legacy/temp-core/`、四個 script、`VERCEL` 部署防線與 lint 忽略；Server 零變更。改寫過渡期測試，新增 `tests/client-modules.test.js`（L／K 組）；同步 AGENTS、README、契約、server-api、privacy、boundary、路線圖（3.7 done，可進 4.1）。
 
 驗證：lint、build、`VERCEL=1` build 通過；`REQUIRE_BASELINE=1 npm test` 305 通過，基準 103／361ms／96 不變，K1 walk 樣本 derive 補出的關鍵幀與 `kf-walk-101` 逐字相同；Playwright 前後對照 2 profile × 22 情境 × 17 元素 0 差異，匯入 6 樣本數值相同（walk／client 檔新增骨架為刻意），壞檔、429、斷線、快速切換、模擬擷取（166／257ms／35）皆符合。Opus review：可 complete，已修 abort 誤報逾時、applyStride 遺失、擷取沿用舊快取、記憶鍵失效、淡化範圍。事故：清理暫時 worktree 時 node_modules 被波及，已 `npm ci` 還原（鎖定檔無變動）。未驗：woman03 影片擷取、拖入影片、第 31 次 429；無快取時遙測整段提早 return、`AGENTS.md`「版本設定」順手去掉「過渡期」。Spec: `context/features/3-7-client-derive-remove-temp-core.md`。
+
+### 2026-11-12 — Feature 3.8: 報告匯出
+
+舊專案 Feature 3.1 搬入 `public/js/report.js`（`openReport`／`closeReport`，`window.print()` 另存 PDF），啟用「📄 匯出報告」按鈕；列印樣式沿用 `main.css`。資料只讀：GCT 取 `getActiveDerived().metrics.gct`、相位取 `getActiveProfileTiming()`，匯出前以 `isDerivedCurrent`＋`deriveStatus` 把關（更新中或失敗則 alert 拒絕）；報告不發請求、不寫快取、不含核心公式，Server 零變更、無新依賴。跑步報告含基本資訊、四相位骨架圖、評分、7 大指標、GCT；行走只放基本資訊與一張骨架圖。新增 `tests/legacy-client.test.js` R1–R5；同步路線圖、boundary、privacy、README。報告標題預設印出影片檔名（可改暱稱、不上傳）。Spec: `context/features/3-8-report-export.md`。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 310 通過（原 305）；Playwright（獨立 chromium）console 0 error、無 4xx，開報告 0 請求、數值與主畫面一致、列印媒體樣式與 PDF 排版正常、walk 樣本只有 1 張骨架、derive 延遲時拒絕匯出、圖層狀態與標題還原。Opus review：修了建報告失敗會留下無法關閉空浮層、未使用變數、R2 偏寬鬆與文件過期敘述。未驗：P5（client-*.json、模擬擷取、影片擷取後匯出）、P9 完整互動、實體列印對話框、derive 429、建報告失敗路徑實測。待使用者確認：預設印出影片檔名。
