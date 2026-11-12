@@ -161,12 +161,17 @@ describe.skipIf(!available)("核心逐值比對", () => {
       expect(result.cadence, name).toBe(expected.cadence);
       expect(result.cadence, name).toBe(client.cadence);
       expect(result.summary, name).toStrictEqual(client.summary);
-      expect(result.metrics, name).toStrictEqual({
+      const { gct, ...rest } = result.metrics;
+      expect(rest, name).toStrictEqual({
         gctMs: expected.gctMs,
         flightMs: expected.flightMs,
         isWalking: false,
         overallScore: expected.overallScore,
       });
+      expect(Object.keys(result.metrics), name).toEqual(["gctMs", "flightMs", "isWalking", "overallScore", "gct"]);
+      expect(gct, name).toStrictEqual(plain(computeGctMetrics(result.summary, result.cadence)));
+      expect(gct.gctMs, name).toBe(result.metrics.gctMs);
+      expect(gct.flightMs, name).toBe(result.metrics.flightMs);
       expect(result.metrics.gctMs, name).toBe(client.metrics.gctMs);
       expect(result.metrics.flightMs, name).toBe(client.metrics.flightMs);
       expect(result.metrics.overallScore, name).toBe(client.metrics.overallScore);
@@ -185,7 +190,8 @@ describe.skipIf(!available)("核心逐值比對", () => {
       }
 
       expect(Object.keys(result), name).toEqual(TOP_KEYS);
-      expect(result.schemaVersion).toBe("1.0.0");
+      expect(result.schemaVersion).toBe("1.1.0");
+      expect(result.schemaVersion).toBe(APP_CONFIG.analysisSchemaVersion);
       expect(result.version).toBe(APP_CONFIG.version);
       expect(result.source).toBe("server");
       expect(result.profileKey).toBe("custom_captured");
@@ -200,7 +206,7 @@ describe.skipIf(!available)("核心逐值比對", () => {
       expect(validateAnalysisJSON(result)).toStrictEqual({
         ok: true,
         legacy: false,
-        schemaVersion: "1.0.0",
+        schemaVersion: "1.1.0",
         errors: [],
         warnings: [],
       });

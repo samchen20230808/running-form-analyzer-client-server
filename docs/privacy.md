@@ -6,13 +6,13 @@
 
 - 影片不離開瀏覽器：由 MediaPipe 在瀏覽器內處理（3.2 起成立，見第 2 節）。
 - Server 只收 landmarks 等數值（33 個關節點座標、時間與少數設定），**不收影片、影像或音訊**（`/api/analyze` 的規格；3.3 起影片擷取完成時才上傳）。
-- Server 不儲存請求內容；程式唯一的 log 是非預期例外時的固定字串 `analyze failed`。
+- Server 不儲存請求內容；程式唯一的 log 是非預期例外時的固定字串（`analyze failed`、`derive failed`）。
 - IP 只在 Server 記憶體中用於限流，不寫入 log、檔案或外部服務。
 - 部署平台（Vercel）本身可能另有 log，不在本程式控制範圍。
 
 ## 2. 目前狀態
 
-3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 只剩 temp-core）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取（3.5 起）也會呼叫一次 `/api/analyze`，送出的是預先烘焙的合成 landmarks（非使用者資料）與當下的身高、機位，不送檔名；JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。
+3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 只剩 temp-core）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取（3.5 起）也會呼叫一次 `/api/analyze`，送出的是預先烘焙的合成 landmarks（非使用者資料）與當下的身高、機位，不送檔名；JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。3.6 起 Server 另有重算端點 `/api/derive`（見第 3 節），但 Client 要到 3.7 才會呼叫，目前沒有任何資料送往該端點。
 
 **過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。3.4 起，`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）以 `public/modules/` 的同步副本在瀏覽器執行，這是永久範圍，不是過渡期，且沒有新的資料流。3.5 起 `lib/profiles/`（內建 profile 靜態資料、烘焙關鍵幀、合成 landmarks）也以 `public/modules/` 公開，只有輸出、沒有公式。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
 
@@ -35,16 +35,27 @@
 - 無影片的模擬擷取（3.5 起）送出的 `frames[]` 是預先烘焙的合成 landmarks（`lib/profiles/sim-capture.js`），不是使用者資料；`heightCm`、`cameraMode` 取當下 UI 值，不送 `profileName`。
 - `profileName` 可能含影片檔名，**請勿放入個人資訊**：它會原樣出現在回應與匯出的 JSON。
 
+### `/api/derive`（3.6 起存在，3.7 起 Client 才使用）
+
+| 欄位 | 意義 | 是否原樣帶回 |
+| ---- | ---- | ------------ |
+| `summary` | 擷取後的數值摘要（角度、步幅、`phaseTiming`，只接受固定鍵） | 否 |
+| `cadence` | 步頻 | 是 |
+| `heightCm`、`cameraMode` | 身高、機位 | 是（含預設值） |
+| `includeKeyframes` | 是否回傳 101 幀關鍵幀 | 否 |
+
+不含 landmarks、不含檔名、不含 `profileName`；頂層與 `summary` 出現未知欄位會被拒絕（400）。body 上限 16 KB。（`lib/server/validate-derive-request.js`）
+
 ## 4. Server 如何處理
 
 - 在記憶體中解算，回應後不再持有任何參照（`handleAnalyzeHttp`、`analyzeRequest`）。唯一的模組層級狀態是 `access-control.js` 的 IP 限流 `Map`，只存 IP 與計數，沒有請求內容。
 - 不寫入檔案、資料庫或外部服務；不使用 cookie；不讀環境變數；不對外連線。
 - 所有 `/api` 回應 `Cache-Control: no-store`（`RESPONSE_HEADERS`）。
-- 回應只含衍生結果（`summary`、`metrics`、`phaseTiming`、101 幀 `cycleKeyframes` 等），**不回傳原始 landmarks**（`lib/server/analyze.js`）。
+- 回應只含衍生結果（`summary`、`metrics`、`phaseTiming`、101 幀 `cycleKeyframes` 等），**不回傳原始 landmarks**（`lib/server/analyze.js`）。`/api/derive` 只回 `cadence`、`heightCm`、`cameraMode` 與衍生值，不回傳 `summary`（`lib/server/derive.js`）。
 
 ## 5. 記錄（log）
 
-- 程式唯一的 log：非預期例外（500）時 `console.error("analyze failed")`，固定字串，不帶錯誤物件、stack、IP 或請求內容（`lib/server/http-handler.js`）。
+- 程式唯一的 log：非預期例外（500）時 `console.error` 固定字串 `analyze failed`（`/api/analyze`）或 `derive failed`（`/api/derive`），不帶錯誤物件、stack、IP 或請求內容（`lib/server/http-handler.js`）。
 - 403、429 與各種 4xx **不 log**。
 - Next.js 開發伺服器（`next dev`）自身會在終端機印出請求路徑與狀態碼，這是框架行為；實測不含 body 與 IP（Next 16.4.6）。
 - 舊 Client 的 `console.error`／`warn`／`info`（`public/js/analyzer.js`）只出現在使用者瀏覽器的 console，不會傳到 Server。
@@ -54,7 +65,7 @@
 - 用途只有限流（`lib/server/access-control.js` `getClientIp`、`hit`）。
 - 取得方式：`x-forwarded-for` 第一段 → `x-real-ip` → 無法辨識時用共用桶 `unknown`。存取控制只讀 `sec-fetch-site`、`origin`、`host`、`x-forwarded-for`、`x-real-ip`，不讀 body、cookie 或 `Authorization`。
 - IP 只以明文作為限流計數的鍵，存在單一 serverless instance 的記憶體中，不寫入 log、檔案或任何外部服務，不與其他資料關聯，不回傳給 client。視窗（60 秒）過期後計數不再生效，但該筆紀錄要等到同一 IP 再次請求、追蹤筆數達 10,000 筆觸發清理，或 instance 被回收時才會從記憶體移除；因此最長可能保留到該 instance 結束為止。instance 的存活時間由平台決定。
-- 目前參數：每 IP 每 60 秒 30 次、最多追蹤 10,000 個 IP（`ACCESS_LIMITS`）。
+- 目前參數：每 IP 每 60 秒 30 次（`/api/analyze` 與 `/api/derive` 共用同一個計數）、最多追蹤 10,000 個 IP（`ACCESS_LIMITS`）。
 - 限流**僅盡力而為**，原因與限制見 [server-api.md](server-api.md#限流)。
 
 ## 7. 部署平台
@@ -81,7 +92,7 @@
 
 - 限流改用外部儲存（Upstash Redis，IP 會存到第三方）
 - 加入 Turnstile 或登入
-- 新增重算端點（`docs/client-server-boundary.md` D6）
+- 新增其他端點（重算端點 `/api/derive` 已於 3.6 建立）
 - 頁面 CSP、第三方資源釘版或自託管
 - 部署（4.1）
 

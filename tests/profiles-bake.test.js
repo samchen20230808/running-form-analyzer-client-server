@@ -7,6 +7,7 @@ import {
   extractAnglesFromLandmarks,
   generatePoseMethodAlignedCycle,
 } from "../lib/core/index.js";
+import { computeGctMetrics } from "../lib/core/index.js";
 import { normalizeCycleKeyframes, sampleCycleKeyframes } from "../lib/player/index.js";
 import {
   BAKED_CYCLE_KEYFRAMES,
@@ -133,7 +134,9 @@ describe("P3 模擬擷取（合成 landmarks）S1–S7", () => {
   it("172／auto 逐值快照", () => {
     expect(SIM_CAPTURE_META.sourceProfileKey).toBe(SIM_CAPTURE_SOURCE_KEY);
     expect(r.result.cadence).toBe(166);
-    expect(r.result.metrics).toStrictEqual({ gctMs: 257, flightMs: 104, isWalking: false, overallScore: 35 });
+    const { gct, ...m } = r.result.metrics;
+    expect(m).toStrictEqual({ gctMs: 257, flightMs: 104, isWalking: false, overallScore: 35 });
+    expect(gct).toStrictEqual(JSON.parse(JSON.stringify(computeGctMetrics(r.result.summary, r.result.cadence))));
     expect(r.result.summary).toStrictEqual({
       trunkAngle: 4.3,
       comOffsetCm: 11.2,

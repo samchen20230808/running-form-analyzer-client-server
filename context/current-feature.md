@@ -1,16 +1,44 @@
-# Current Feature
+# Current Feature: 3.6 衍生值 API
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 契約 1.1.0：`APP_CONFIG.analysisSchemaVersion` 升 `1.1.0`，`metrics.gct` 為 `computeGctMetrics` 完整物件（原樣輸出）
+- 新增 `lib/server/metrics.js` `buildMetrics`，analyze／derive 共用
+- 新增 `POST /api/derive`（`derive.js`、`validate-derive-request.js`、`app/api/derive/route.js`），16 KB 上限、未知欄位 400、`includeKeyframes` 選填
+- `http-handler.js` 抽出共用 `handleJsonPost`，`handleAnalyzeHttp` 行為不變
+- `lib/core/index.js` 9 → 12 個名稱
+- 只動 Server；`public/**`、temp-core 不動，仍不可部署
+- 測試 A／R／K／H／S 組；文件同步
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+規格：`context/features/3-6-derive-api.md`。未決事項採建議預設：derive 與 analyze 共用限流；`public/js/config.js` 版本號待 3.7 再升（待使用者確認）。
+
+### Baseline（改動前）
+
+- `npm run build` 成功（route：`/api/analyze`）
+- `REQUIRE_BASELINE=1 npm test`：11 檔 214 通過
+
+### 驗證（實作後）
+
+- `npm run lint`、`npm run build` 通過（route 清單出現 `ƒ /api/derive`）
+- `REQUIRE_BASELINE=1 npm test`：277 通過（原 214）；基準 103／361ms／96、三份 landmarks 193／176／150（66／90／75）不變；`kf-walk-101`／`kf-hsu-101` 與 derive 輸出逐字相同
+- `/api/analyze`：`schemaVersion` 1.1.0，`metrics` 多 `gct`（woman03 `rating: good`、193、總分 66），其餘值不變
+- curl（既有 dev server，3001）：derive 200（361／96、5 個安全標頭、無 CORS）、`includeKeyframes` 101 幀、cross-site 403、text/plain 415、`{"cadence":180}` 400、GET 405（no-store）、OPTIONS 204、17 KB 413
+- `.next/static` 無 `derive failed`／`computeStrideForCameraMode`／`strideModeText`／`buildMetrics`／`validateDeriveRequest`；禁改範圍 `git diff` 為空；`VERCEL=1` build 仍失敗；`sync:legacy`、`bake:profiles` 後內容無差異（僅行尾，已還原）
+- Playwright：`/index.html` console 0 error
+- 未驗：UI 模擬擷取與影片擷取的實際 POST（該按鈕是「預覽徐國峰標準動作」，未找到觸發 API 的入口，Client 本 Feature 未改）；31 次共用限流只由單元測試 H7 驗證，未用 curl 實測
+- 決策：限流與 analyze 共用（使用者已確認，3.7 加 debounce 後再評估是否獨立計數）；`public/js/config.js` 維持 1.0.0 待 3.7（規格建議預設，待使用者確認）
+
+### Opus review 後修正
+
+- review 結論：程式正確；補強測試缺口後可 complete。已補：S2（兩個 route 只 import http-handler）、S3（derive／metrics／validate-derive-request 的 import 白名單）、S6（`public/` 不含 `/api/derive`，3.7 移除）、A4（1.1.0 驗證案例）、R8 去掉靜默防護並補 `phaseTiming`／`stride`／`autoStrideMeters` 比對、R6 補徐國峰分支與 `isWalking`、K1 改完整 `toStrictEqual`、R1 補 `Infinity`；同步過時註解、契約 §3、boundary 呼叫端欄位、server-api 驗證說明
+- 補強後 `REQUIRE_BASELINE=1 npm test` 281 通過、lint 無問題
+- 未做：規格驗收要求的「修改前後 analyze 結果」scratchpad 比對與「對 temp-core 實際擷取」探針；改以逐值測試（K 組、baseline 測試的 `metrics` 去掉 `gct` 後與基準相同）替代
 
 ## History
 

@@ -55,8 +55,8 @@
 | 3.3     | Client 呼叫 `/api/analyze`   | done | 影片擷取完成時上傳 landmarks、套用 Server 結果；錯誤提示、過時回應丟棄；刪除 `customCycleFrames`；`lib/` 不動、temp-core 與部署防線保留；規格見 [`3-3`](../../context/features/3-3-client-calls-analyze.md) |
 | 3.4     | 瀏覽器共用模組與橋接         | done | `lib/player/`、`lib/landmarks/` 為單一來源（`lib/core/` 轉匯出）；`npm run sync:legacy` 複製到 `public/legacy/modules/`，`window.RFA` 橋接，UI 6 組呼叫點已切換；`evaluateProfileAngles` 留 3.5；規格見 [`3-4`](../../context/features/3-4-browser-shared-modules-bridge.md) |
 | 3.5     | 內建 profile 烘焙與模擬擷取  | done | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 已通過原型關卡（S1–S7）；UI 缺關鍵幀時不顯示骨架並提示；規格見 [`3-5`](../../context/features/3-5-profile-baking-sim-capture.md) |
-| 3.6     | 衍生值 API                   | planned | 契約 1.1.0（`metrics.gct` 完整物件）＋ `POST /api/derive`；只動 Server（D5、D6） |
-| 3.7     | Client 改讀衍生值並移除 temp-core | planned | UI 改讀 `metrics`／derive、移除 `public/legacy/temp-core/` 與 `VERCEL` 部署防線、bundle 檢查、改寫過渡期文件；完成後才可進 4.1 |
+| 3.6     | 衍生值 API                   | done | 契約 1.1.0（`metrics.gct` 完整物件，`buildMetrics` 共用）＋ `POST /api/derive`（16 KB、未知欄位 400、`includeKeyframes` 選填、與 analyze 共用限流）；只動 Server，Client 與 temp-core 不動；規格見 [`3-6`](../../context/features/3-6-derive-api.md) |
+| 3.7     | Client 改讀衍生值並移除 temp-core | planned | 另含：呼叫 derive 的 debounce、`includeKeyframes` 補舊檔骨架、`public/js/config.js` 升 1.1.0、`phaseTiming` 只在匯入採用；UI 改讀 `metrics`／derive、移除 `public/legacy/temp-core/` 與 `VERCEL` 部署防線、bundle 檢查、改寫過渡期文件；完成後才可進 4.1 |
 | 3.8     | 報告匯出                     | planned | 原 3.4：舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心 |
 | 3.9     | 頁面改為根路徑 `/index.html` | done | 搬到 `public/` 根目錄（temp-core 留原處，`/` 307 → `/index.html`，舊路徑 404），見 `context/features/3-9-root-index-html.md`。原需求：`npm run dev` 後直接以 `http://localhost:3000/index.html` 開啟（現為 `/legacy/index.html`，`/` 307 導向）；規格階段決定作法（建議先評估「整包搬到 `public/` 根目錄並移除 `/`→legacy 轉址」或「只加 `/index.html` 轉址」），連動 `tests/legacy-client.test.js`、`scripts/sync-legacy-modules.mjs` 目的地、文件；建議排在 3.5 之前，避免後續 Feature 沿用舊路徑 |
 

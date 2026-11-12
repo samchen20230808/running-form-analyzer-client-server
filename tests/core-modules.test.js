@@ -18,7 +18,7 @@ const stripComments = (src) =>
 const coreFiles = readdirSync(CORE_DIR).filter((f) => f.endsWith(".js"));
 
 describe("lib/core 對外入口", () => {
-  it("恰好匯出 9 個名稱", () => {
+  it("恰好匯出 12 個名稱", () => {
     expect(Object.keys(core).sort()).toEqual(
       [
         "APP_CONFIG",
@@ -26,7 +26,10 @@ describe("lib/core 對外入口", () => {
         "analyzeCapturedFrames",
         "buildCycleKeyframesFromSummary",
         "calculateOverallRunningScore",
+        "computeAutoStrideMeters",
         "computeGctMetrics",
+        "computePersonalizedPhaseTiming",
+        "computeStrideForCameraMode",
         "evaluateCaptureFrame",
         "extractAnglesFromLandmarks",
         "generatePoseMethodAlignedCycle",
@@ -98,12 +101,24 @@ describe("server-only 與環境隔離", () => {
   });
 
   it("route.js 只 import http-handler；http-handler 不一次讀完整個 body", () => {
-    const route = readFileSync(new URL("../app/api/analyze/route.js", import.meta.url), "utf8");
-    const imports = [...route.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
-    expect(imports).toEqual(["../../../lib/server/http-handler.js"]);
+    for (const name of ["analyze", "derive"]) {
+      const route = readFileSync(new URL(`../app/api/${name}/route.js`, import.meta.url), "utf8");
+      const imports = [...route.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
+      expect(imports, name).toEqual(["../../../lib/server/http-handler.js"]);
+    }
     const handler = readFileSync(new URL("http-handler.js", SERVER_DIR), "utf8");
     expect(handler).not.toMatch(/request\.(text|json|arrayBuffer)\(/);
     expect(serverFiles).toEqual(expect.arrayContaining(["http-handler.js", "access-control.js"]));
+  });
+
+  it("derive.js／metrics.js／validate-derive-request.js 只 import server-only、核心入口與 lib/server 內檔案", () => {
+    for (const f of ["derive.js", "metrics.js", "validate-derive-request.js"]) {
+      const src = readFileSync(new URL(f, SERVER_DIR), "utf8");
+      const imports = [...src.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
+      for (const i of imports) {
+        expect(i === "server-only" || i === "../core/index.js" || /^\.\/[\w-]+\.js$/.test(i), `${f}: ${i}`).toBe(true);
+      }
+    }
   });
 
   it("access-control.js 只 import server-only，不讀 body／env、不 log、不用 APP_CONFIG", () => {
