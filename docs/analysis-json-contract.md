@@ -69,7 +69,7 @@
 ```jsonc
 {
   "schemaVersion": "1.1.0",        // 必填（v1 起）；格式版本，semver
-  "version": "V3.29",              // 選填；產生端程式版本
+  "version": "V4.0",              // 選填；產生端程式版本
   "source": "client",              // 選填；"client" | "server"
   "timestamp": "2026-11-11T08:00:00.000Z",
   "profileKey": "custom_captured",
@@ -226,7 +226,7 @@ Client 3.7 起匯出時帶入 `metrics`（含 `gct`，僅在與目前輸入一�
 ```json
 {
   "schemaVersion": "1.1.0",
-  "version": "V3.29",
+  "version": "V4.0",
   "timestamp": "2026-11-11T08:00:00.000Z",
   "cameraMode": "auto",
   "heightCm": 172,

@@ -2,7 +2,7 @@
 // ★ 系統全域版本與設定 (Single Source of Truth)
 // ============================================================================
 const APP_CONFIG = {
-  version: "V3.29",
+  version: "V4.0",
   analysisSchemaVersion: "1.1.0", // 分析結果 JSON 契約版本（見 docs/analysis-json-contract.md）
   versionName: "高速跑姿防漏格與單腳步頻校正版 (動態模糊視野放寬 • 走跑多維智能辨識 • 雙步倍頻重校)",
   systemName: "AI 跑姿生物力學與骨架循環分析系統",

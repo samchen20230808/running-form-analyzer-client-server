@@ -2,7 +2,7 @@
 
 單一 Next.js 專案、單一 Vercel 部署（目標架構）：MediaPipe 留在瀏覽器擷取 landmarks，核心演算法只存在於 server-only 模組，Client 只負責擷取、呼叫 `/api/analyze` 與渲染結果。3.7 起瀏覽器不再帶舊核心，邊界見 [docs/client-server-boundary.md](docs/client-server-boundary.md)。
 
-- 版本：V3.29（集中於 `lib/config.js` 的 `APP_CONFIG`，發版時同步本檔）
+- 版本：V4.0（集中於 `lib/config.js` 的 `APP_CONFIG`，發版時同步本檔）
 
 ## 目前狀態
 

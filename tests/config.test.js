@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../lib/config.js";
 
 describe("APP_CONFIG", () => {
-  it("與舊專案 V3.29 的設定值逐欄一致", () => {
+  it("與預期的 V4.0 設定值逐欄一致", () => {
     expect(APP_CONFIG).toEqual({
-      version: "V3.29",
+      version: "V4.0",
       analysisSchemaVersion: "1.1.0",
       versionName:
         "高速跑姿防漏格與單腳步頻校正版 (動態模糊視野放寬 • 走跑多維智能辨識 • 雙步倍頻重校)",
