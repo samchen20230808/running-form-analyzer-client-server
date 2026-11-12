@@ -306,3 +306,47 @@ describe("E 3.9 頁面位置", () => {
     }
   });
 });
+
+describe("R 3.8 報告匯出", () => {
+  const report = () => read("public/js/report.js");
+
+  it("R1 report.js 在 analyzer 之後載入一次，按鈕已啟用", () => {
+    const html = read("public/index.html");
+    expect(html.match(/src="js\/report\.js"/g)).toHaveLength(1);
+    expect(html.indexOf("js/report.js")).toBeGreaterThan(html.indexOf("js/analyzer.js"));
+    expect(html).not.toContain("報告匯出於 3.4 提供");
+    expect(html).not.toContain("report.js：3.4 搬入");
+    expect(html).toContain('onclick="openReport()"');
+  });
+
+  it("R2 只讀衍生結果：不發請求、不寫快取與相位", () => {
+    const src = report();
+    for (const w of ["getActiveDerived()", "getActiveProfileTiming()", "isDerivedCurrent", "deriveStatus"]) {
+      expect(src).toContain(w);
+    }
+    for (const w of ["fetch", "scheduleDerive", "postDerive", "computeGctMetrics", "computePersonalizedPhaseTiming"]) {
+      expect(src, w).not.toContain(w);
+    }
+    expect(src).not.toMatch(/\.(derived|phaseTiming)\s*=[^=]/);
+  });
+
+  it("R3 報告讀取的 DOM id 皆存在於 index.html", () => {
+    const html = read("public/index.html");
+    const ids = ["topCadenceInput", "bannerStrideInput", "topPaceVal", "topSpeedVal", "overallScoreNum", "overallGradeBadge", "overallScoreSummary", "diagnosticCardsContainer", "gctRangeBadge", "gctDetailText", "gctCompareBadge", "gctStatusText"];
+    for (const id of ids) {
+      expect(report(), id).toContain(id);
+      expect(html, id).toContain(`id="${id}"`);
+    }
+  });
+
+  it("R4 main.css 含列印樣式", () => {
+    const css = read("public/styles/main.css");
+    for (const w of ["@media print", "@page { size: A4 portrait", "print-color-adjust: exact", "body.report-open > *:not(#reportOverlay)"]) {
+      expect(css, w).toContain(w);
+    }
+  });
+
+  it("R5 report.js 不含 console.error", () => {
+    expect(report()).not.toContain("console.error");
+  });
+});

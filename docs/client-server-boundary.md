@@ -73,7 +73,7 @@
 | `js/renderer.js:442–461` `drawBiomechAnnotations` | `RUNNER_PROFILES`；內嵌 `isBiomechanicalRunner`／`isWalkGait` 門檻 | 標註文字與好壞配色 | 判斷式暫留 UI（D10） |
 | `js/renderer.js:563–569`、`618`、`665–697` `drawWaveform` | `computeGctMetrics`、`getActiveRunnerTiming`、`evalCycle` ×51 ×3 | 波形與色帶 | 同 `drawSimulator` |
 | `js/renderer.js:709–726` `animateLoop` | 間接：每個 `requestAnimationFrame` 呼叫 `drawSimulator`＋`drawWaveform` | 動畫迴圈 | 不變 |
-| `js/report.js:17–49` `captureSkeletonSnapshots`、`52–58` `buildReportHtml` | → `drawSimulator`；`computeGctMetrics`（56）、`computePersonalizedPhaseTiming`（58） | 報告骨架截圖與 GCT 段落（3.4 搬入） | 讀衍生結果；3.4 規格引用本文件 |
+| `js/report.js:17–49` `captureSkeletonSnapshots`、`52–58` `buildReportHtml` | → `drawSimulator`；`computeGctMetrics`（56）、`computePersonalizedPhaseTiming`（58） | 報告骨架截圖與 GCT 段落（3.8 搬入） | 讀衍生結果（3.8 已改讀 derive 快取與唯讀相位） |
 | `js/ui.js:270–279`、`290–297` | `getActiveRunnerTiming` | 相位跳轉、相位 HUD | 讀 profile 值 |
 
 ### (5) `RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming`
@@ -177,7 +177,7 @@
 - **3.3（已完成，見 [規格](../context/features/3-3-client-calls-analyze.md)）**：只做影片擷取改呼叫 `/api/analyze`、錯誤提示、過時回應丟棄、刪除 `customCycleFrames`；`lib/` 與 temp-core 不動。**3.4–3.7**（原 3.3 的範圍，依相依順序拆分）：落實 D1–D9（含 D8 的 `lib/landmarks/` 共用模組、D9 的合成 landmarks 烘焙）；`lib/player/`、`lib/profiles/`＋烘焙腳本與「烘焙 == 重算」測試、契約 1.1.0、重算端點、移除本地運動學退回路徑與本地合成的模擬擷取（模擬擷取功能本身保留）；驗收「瀏覽器資源與 `.next/static/` 不含核心特有字串」；擴充 `tests/privacy-docs.test.js`（新端點也只 log 固定字串；`lib/player/`、`lib/profiles/` 不 import `lib/core`／`lib/server`）；重新核對 `docs/privacy.md`。建議評估是否把 D1（單一來源整理）與 D6（重算端點）拆成獨立 Feature，避免 3.3 一次變更過多。
 - **3.5（已完成，見 [規格](../context/features/3-5-profile-baking-sim-capture.md)）**：`lib/profiles/`（`builtin.js` 靜態資料、`baked-keyframes.js`、`sim-capture.js` 為 `npm run bake:profiles` 產生檔，測試逐字比對「烘焙 == 核心重算」）；`evaluateProfileAngles` 拆分、`lib/core/keyframes.js` 刪除；UI 無本地運動學退回、缺關鍵幀時不顯示骨架；模擬擷取改上傳合成 landmarks；`getActiveProfileTiming` 唯讀。
 - **3.4（已完成，見 [規格](../context/features/3-4-browser-shared-modules-bridge.md)）**：`lib/player/`（`normalizeCycleKeyframes`／`sampleCycleKeyframes`／常數在 `keyframes.js`，`solveKinematics` 在 `kinematics.js`，`parseManualStrideValue` 在 `stride-input.js`）與 `lib/landmarks/` 為單一來源，`lib/core/` 改由它們轉匯出（`lib/core/landmark-extract.js` 已刪除，`evaluateProfileAngles` 留在 `lib/core/keyframes.js:10`，3.5 拆分）。橋接：`npm run sync:legacy` 複製到 `public/modules/`（提交進 git，測試偵測漂移），`modules/bridge.js` 掛 `window.RFA`；舊 UI 6 組呼叫點（`js/analyzer.js`、`js/renderer.js`、`index.html:1386`、`:2064`）改為同行替換 `RFA.player.*`／`RFA.landmarks.*`。
-- **3.8（原 3.4）**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
+- **3.8（原 3.4）**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。**已完成**：`public/js/report.js` 的 GCT 讀 `getActiveDerived().metrics.gct`、相位讀 `getActiveProfileTiming()`，匯出前以 `isDerivedCurrent`＋`deriveStatus` 把關；報告本身不發請求、不寫快取。
 
 **3.7 完成**：Client 遙測、總分、GCT、狀態牌、波形色帶、機位／身高／重設自動／手動步頻重算改讀 `POST /api/derive`（`lib/client/` 組請求，`public/js/derive.js` 負責 debounce、序號丟棄過時回應與逐 profile 記憶）；匯入（D7）先前置檢查，再 derive 取得正規化 `phaseTiming`（全專案唯一寫回處）與缺少時的骨架，失敗則中止；擷取完成 1 次 derive 套用步幅；匯出 1.1.0 帶 `metrics`。已刪除 `public/legacy/temp-core/`、四個 script、`VERCEL` 部署防線。刻意行為變更：首次載入與未計算過的 profile 短暫顯示「更新中」；derive 失敗保留上一份數值並顯示錯誤；匯入需連線且壞檔（步頻不在 (0, 400] 或數值絕對值 > 1000）拒絕；舊格式匯入檔重新顯示骨架；匯入檔 `phaseTiming` 各值非 0–100 視為 null；非數字欄位走預設值；匯出 1.1.0；各操作消耗與 analyze 共用的限流額度。
 

@@ -214,7 +214,7 @@
           </button>
 
           <button
-            disabled title="報告匯出於 3.4 提供"
+            onclick="openReport()"
             class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500 transition"
           >
             📄 匯出報告
@@ -1328,7 +1328,7 @@
     <script src="js/pose.js"></script>
     <script src="js/derive.js"></script>
     <script src="js/analyzer.js"></script><script type="module" src="modules/bridge.js"></script>
-    <!-- report.js：3.4 搬入 -->
+    <script src="js/report.js"></script>
     <script>
 
       function onCameraModeChange(val) {
