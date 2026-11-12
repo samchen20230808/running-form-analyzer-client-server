@@ -5,7 +5,7 @@ describe("APP_CONFIG", () => {
   it("與舊專案 V3.29 的設定值逐欄一致", () => {
     expect(APP_CONFIG).toEqual({
       version: "V3.29",
-      analysisSchemaVersion: "1.0.0",
+      analysisSchemaVersion: "1.1.0",
       versionName:
         "高速跑姿防漏格與單腳步頻校正版 (動態模糊視野放寬 • 走跑多維智能辨識 • 雙步倍頻重校)",
       systemName: "AI 跑姿生物力學與骨架循環分析系統",

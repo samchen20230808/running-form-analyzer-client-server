@@ -14,6 +14,21 @@ const SUMMARY_KEYS = [
 ];
 const fullSummary = () => Object.fromEntries(SUMMARY_KEYS.map((k) => [k, 1]));
 
+describe("validateAnalysisJSON 1.1.0", () => {
+  it("1.1.0 帶 metrics.gct → ok、零 warnings；1.9.0 ok；2.0.0 不支援", () => {
+    const base = { cadence: 180, summary: fullSummary(), metrics: { gctMs: 1, gct: { rating: "good" } } };
+    expect(validateAnalysisJSON({ ...base, schemaVersion: "1.1.0" })).toStrictEqual({
+      ok: true,
+      legacy: false,
+      schemaVersion: "1.1.0",
+      errors: [],
+      warnings: [],
+    });
+    expect(validateAnalysisJSON({ ...base, schemaVersion: "1.9.0" }).ok).toBe(true);
+    expect(validateAnalysisJSON({ ...base, schemaVersion: "2.0.0" }).ok).toBe(false);
+  });
+});
+
 describe("validateAnalysisJSON", () => {
   it.each([null, [], 5])("根節點 %j 不是物件 → ok:false", (v) => {
     const r = validateAnalysisJSON(v);

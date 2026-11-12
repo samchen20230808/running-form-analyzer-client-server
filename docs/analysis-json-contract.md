@@ -3,7 +3,7 @@
 > 源自舊專案 `D:\MyWeb\Running form analyzer` 的 `docs/analysis-json-contract.md`，自 Feature 1.2 起成為本專案的契約正本。
 > 本專案的產生端是 `lib/server/analyze.js`（`analyzeRequest`），驗證函式是 `lib/contract/validate-analysis-json.js`（`validateAnalysisJSON`，非 server-only，可在瀏覽器使用）。
 > 第 1 節「現況盤點」描述的是舊 Client（`js/analyzer.js` 等），本專案的 Client 於 Epic 3 搬入後再更新。
-> 契約版本：`schemaVersion = "1.0.0"`（已定版）。
+> 契約版本：`schemaVersion = "1.1.0"`（3.6 起；1.0.0 的檔案仍可匯入）。
 
 本文件定義 Client 與（未來的）Server 之間交換「單支影片分析結果」的 JSON 格式，也是 Client「匯出／匯入 JSON」的檔案格式。
 
@@ -62,13 +62,13 @@
 
 ---
 
-## 2. 契約 v1.0.0
+## 2. 契約 v1.1.0
 
 ### 2.1 頂層結構
 
 ```jsonc
 {
-  "schemaVersion": "1.0.0",        // 必填（v1 起）；格式版本，semver
+  "schemaVersion": "1.1.0",        // 必填（v1 起）；格式版本，semver
   "version": "V3.29",              // 選填；產生端程式版本
   "source": "client",              // 選填；"client" | "server"
   "timestamp": "2026-11-11T08:00:00.000Z",
@@ -81,7 +81,7 @@
   "isManualStride": false,
   "phaseTiming": { },
   "summary": { },                  // 必填
-  "metrics": { },                  // 預留，Client 忽略
+  "metrics": { },                  // Client 在 3.7 前仍忽略
   "cycleKeyframes": { }            // 選填；2.2 起 Client 讀取，缺少或不合法時不顯示骨架並提示（3.5 起無本地運動學退回）
 }
 ```
@@ -122,6 +122,20 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 | `gctMs`、`flightMs` | `computeGctMetrics(summary, cadence)` |
 | `overallScore` | `calculateOverallRunningScore(summary, cadence)` |
 | `isWalking` | `cadence < 135 && !isBiomechanicalRunner`（`avgElbow ≤ 100` 且 `hipRomDeg ≥ 36` 為跑者），與評分、骨架模型一致 |
+
+1.1.0 新增選填 `metrics.gct`：`computeGctMetrics(summary, cadence)` 的完整回傳物件，原樣輸出（鍵順序依核心）。`/api/analyze` 與 `/api/derive` 共用 `buildMetrics`。
+
+| 欄位 | 說明 |
+| ---- | ---- |
+| `cadence` | 輸入步頻 clamp 到 60–240 後的值（不一定等於頂層 `cadence`） |
+| `stepMs`、`cycleMs`、`gctMs`、`flightMs` | ms；`gctMs`／`flightMs` 與 `metrics.gctMs`／`flightMs` 同值 |
+| `stancePct`、`flightPct` | 週期 %；行走分支的 `flightPct` 是雙腳支撐比例，不是騰空 |
+| `hsuGctMs`、`hsuFlightMs`、`hsuStancePct`、`diffMs` | 徐國峰基準與差值；行走與徐國峰基準分支 `diffMs` 為 0 |
+| `skipHsuCompare`、`flightLabel` | **只在行走分支出現**（行走 17 鍵，其餘 15 鍵） |
+| `rating` | `walking`／`elite`／`good`／`long`／`excessive` |
+| `ratingText`、`advice`、`ratingColor` | 繁中顯示文字（含 emoji）與 Tailwind class；已知取捨：契約帶有顯示內容 |
+
+Client 3.7 前仍忽略 `metrics`（含 `gct`）。
 
 注意：`computeGctMetrics` 的行走分支只看 `cadence < 135`，所以步頻 < 135 但被判為跑者時，`isWalking` 為 `false`，`gctMs` 仍用行走公式、`flightMs` 為 0（既有行為，照實輸出）。
 
@@ -180,6 +194,7 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 ## 3. 版本規則
 
 - `schemaVersion` 採 semver：PATCH 只修文件；MINOR 新增選填欄位（舊 Client 忽略未知欄位）；MAJOR 移除／改名／改單位語意（舊 Client 必須拒絕）。
+- 1.1.0（3.6）：新增選填 `metrics.gct`。
 - 與程式版本 `version` 各自獨立；Client 支援版本定義於 `APP_CONFIG.analysisSchemaVersion`。
 - 匯入端一律忽略未知欄位。
 
@@ -196,6 +211,8 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 
 ## 修訂紀錄
 
+- 3.6：MINOR（1.1.0）。`metrics` 新增選填 `gct`（`computeGctMetrics` 完整物件）；既有欄位與數值不變，舊檔照常匯入，`validateAnalysisJSON` 僅擋 MAJOR > 1。新增 `POST /api/derive`，見 [server-api.md](server-api.md)。
+
 - 1.2：契約搬入本專案；產生端改為 `lib/server/analyze.js`，驗證函式搬入 `lib/contract/`。屬於搬遷，沒有新增、移除或改名欄位，`schemaVersion` 維持 `1.0.0`。
 
 - 2.3：Server 原型開始產出本契約（`source: "server"`、`metrics` 四個欄位、101 幀 `cycleKeyframes`），請求格式見 [server-api.md](server-api.md)。屬於語意澄清，沒有新增或改名欄位，`schemaVersion` 維持 `1.0.0`。
@@ -206,7 +223,7 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "version": "V3.29",
   "timestamp": "2026-11-11T08:00:00.000Z",
   "cameraMode": "auto",

@@ -1,6 +1,6 @@
 # Client／Server 邊界與本地解算依賴盤點
 
-> 狀態：Feature 3.1 產出（調查，不改程式）。**3.5 已建立 `lib/profiles/` 並落實 D2／D3／D4／D9**（`evaluateProfileAngles` 改為 `lib/player/keyframes.js` 只看關鍵幀；`getActiveRunnerTiming` 由 `public/js/state.js` 的唯讀 `getActiveProfileTiming` 取代；UI 不再呼叫 `evaluateProfileCycle`，temp-core 的定義隨 3.7 刪除）。本文件描述 3.3 之後**預期**的邊界；文中提到的端點（`POST /api/derive`）與契約 1.1.0 **目前都不存在**（`lib/player/`、`lib/landmarks/` 已於 3.4 建立，`lib/profiles/` 已於 3.5 建立）。落實的 Feature 因 3.3 規格而重新編號：3.3 影片擷取呼叫 `/api/analyze`；3.4 D1／D8（`lib/player/`、`lib/landmarks/`、橋接）；3.5 D2–D4／D9（`lib/profiles/`、模擬擷取）；3.6 D5／D6 的 Server 端（契約 1.1.0、`POST /api/derive`）；3.7 D5–D7 的 Client 端與移除 temp-core；原 3.4 報告匯出改為 3.8。下文與決策表中的「3.3」除特別標示外，一律指「3.4–3.7」。
+> 狀態：Feature 3.1 產出（調查，不改程式）。**3.5 已建立 `lib/profiles/` 並落實 D2／D3／D4／D9**（`evaluateProfileAngles` 改為 `lib/player/keyframes.js` 只看關鍵幀；`getActiveRunnerTiming` 由 `public/js/state.js` 的唯讀 `getActiveProfileTiming` 取代；UI 不再呼叫 `evaluateProfileCycle`，temp-core 的定義隨 3.7 刪除）。本文件描述 3.3 之後**預期**的邊界；**3.6 已建立契約 1.1.0（`metrics.gct`）與 `POST /api/derive`（Server 端；Client 要到 3.7 才改讀／呼叫）**。文中其餘「預期」描述仍待 3.7 落實（`lib/player/`、`lib/landmarks/` 已於 3.4 建立，`lib/profiles/` 已於 3.5 建立）。落實的 Feature 因 3.3 規格而重新編號：3.3 影片擷取呼叫 `/api/analyze`；3.4 D1／D8（`lib/player/`、`lib/landmarks/`、橋接）；3.5 D2–D4／D9（`lib/profiles/`、模擬擷取）；3.6 D5／D6 的 Server 端（契約 1.1.0、`POST /api/derive`）；3.7 D5–D7 的 Client 端與移除 temp-core；原 3.4 報告匯出改為 3.8。下文與決策表中的「3.3」除特別標示外，一律指「3.4–3.7」。
 > 規格：[`context/features/3-1-client-local-solve-inventory.md`](../context/features/3-1-client-local-solve-inventory.md)。
 
 ## 1. 目的與結論摘要
@@ -108,21 +108,21 @@
 
 | 函式／資料 | 位置 | 歸屬 | 3.3 之後的呼叫端 | 理由 |
 | ---------- | ---- | ---- | ---------------- | ---- |
-| `computePersonalizedPhaseTiming` | `lib/core/biomechanics.js:7` | server-only | `analyzeRequest`、重算端點 | 相位計時公式 |
-| `computeGctMetrics` | `lib/core/biomechanics.js:55` | server-only（結果由 API 提供） | `analyzeRequest`、重算端點 | GCT／評級公式 |
+| `computePersonalizedPhaseTiming` | `lib/core/biomechanics.js:7` | server-only | `analyzeRequest`、`lib/server/derive.js` | 相位計時公式 |
+| `computeGctMetrics` | `lib/core/biomechanics.js:55` | server-only（結果由 API 提供） | `analyzeRequest`、`lib/server/derive.js` | GCT／評級公式 |
 | `generatePoseMethodAlignedCycle` | `lib/core/biomechanics.js:174` | server-only | 烘焙腳本、`buildCycleKeyframesFromSummary` | 骨架模型，D2 退回路徑移除 |
-| `computeAutoStrideMeters` | `lib/core/biomechanics.js:389` | server-only | 重算端點 | 步幅推算 |
-| `computeStrideForCameraMode` | `lib/core/biomechanics.js:438` | server-only | 分析、重算端點 | 步幅推算 |
+| `computeAutoStrideMeters` | `lib/core/biomechanics.js:389` | server-only | `lib/server/derive.js` | 步幅推算 |
+| `computeStrideForCameraMode` | `lib/core/biomechanics.js:438` | server-only | 分析、`lib/server/derive.js` | 步幅推算 |
 | `parseManualStrideValue` | `lib/player/stride-input.js:3`（3.4 已搬） | 瀏覽器模組（UI 輸入解析） | 手動步幅輸入 | 純輸入解析，無演算法；若不願進瀏覽器可在 UI 重寫 |
 | `solveKinematics` | `lib/player/kinematics.js:3`（3.4 已搬） | 瀏覽器模組（`lib/player/`） | renderer | 正向運動學，Server 不使用（D1） |
-| `calculateOverallRunningScore` | `lib/core/cycle-analysis.js:13` | server-only | 分析、重算端點 | 評分公式 |
+| `calculateOverallRunningScore` | `lib/core/cycle-analysis.js:13` | server-only | 分析、`lib/server/derive.js` | 評分公式 |
 | `detectCadenceFromFrames` | `lib/core/cycle-analysis.js:66` | server-only | 分析 | 步頻偵測 |
 | `computeCycleSummaryStats` | `lib/core/cycle-analysis.js:183` | server-only | 分析 | 週期統計 |
 | `computeMeasuredPixelStride` | `lib/core/cycle-analysis.js:340` | server-only | 分析 | 像素步幅 |
 | `analyzeCapturedFrames` | `lib/core/cycle-analysis.js:386` | server-only | `analyzeRequest` | 分析主流程 |
 | `extractAnglesFromLandmarks` | `lib/landmarks/landmark-extract.js:14`（3.4 已搬） | 瀏覽器模組（共用單一來源，D8） | Client 即時 HUD／同步骨架、`analyzeRequest` | 使用者指示保留即時功能；Server 同樣 import |
 | `evaluateCaptureFrame` | `lib/landmarks/landmark-extract.js:205`（3.4 已搬） | 瀏覽器模組（共用單一來源，D8） | Client 擷取停止條件、`analyzeRequest` | 同上；Server 重跑為準 |
-| `buildCycleKeyframesFromSummary` | `lib/core/keyframes-builder.js:8` | server-only | `analyzeRequest`、重算端點、烘焙腳本 | 產生關鍵幀 |
+| `buildCycleKeyframesFromSummary` | `lib/core/keyframes-builder.js:8` | server-only | `analyzeRequest`、`lib/server/derive.js`、烘焙腳本 | 產生關鍵幀 |
 | `CYCLE_KEYFRAME_NUMERIC_FIELDS`、`CYCLE_KEYFRAME_MIN_FRAMES` | `lib/player/keyframes.js:7`、`:21`（3.4 已搬） | 瀏覽器模組（`lib/player/` 為單一來源，core 轉匯出） | 匯入檢查、取樣 | 契約公開格式 |
 | `normalizeCycleKeyframes` | `lib/player/keyframes.js:24`（3.4 已搬） | 瀏覽器模組（`lib/player/`） | 匯入檢查 | 只處理契約格式 |
 | `sampleCycleKeyframes` | `lib/player/keyframes.js:72`（3.4 已搬） | 瀏覽器模組（`lib/player/`） | renderer、波形 | 只做插值取樣 |
@@ -144,8 +144,8 @@
 | D2 | 本地運動學退回路徑 | (a) 移除；缺少或不合法的關鍵幀時不顯示骨架並提示 | 保留等於把骨架模型交給瀏覽器；有 D3、D6、D7 後已無正常的缺關鍵幀路徑 | 3.3；契約 1.4、2.1（第 85 行）、2.5 第 4 點敘述須改 | **3.5 已落實** |
 | D3 | `RUNNER_PROFILES` 靜態資料 | (a) `lib/profiles/`，含離線烘焙的 101 幀 `cycleKeyframes` 與衍生值；烘焙腳本產生，Vitest 斷言「烘焙檔 == 核心重新計算」 | 關鍵幀是輸出不是演算法；(b) `GET /api/profiles`、(c) 載入時重算多一次請求且受限流／離線影響 | 3.3；`lib/config.js` 檔頭註解（第 4 行提到 `RUNNER_PROFILES` 依賴 `evaluateProfileAngles`）屆時須更新 | **3.5 已落實** |
 | D4 | `evaluateProfileCycle`／`getActiveRunnerTiming` | 前者刪除；後者改為唯讀取值，不呼叫 `computePersonalizedPhaseTiming`、不改寫 summary | 依賴可變全域狀態；唯讀化同時消除 `pullPct` 漂移 | 3.3 | **3.5 已落實** |
-| D5 | 衍生數值由誰算 | (a) Server 回傳：`metrics` 新增選填欄位（例如 `metrics.gct`：`stancePct`、`flightLabel`、`skipHsuCompare`、`diffMs`、`hsuGctMs`、`rating`、`ratingText`、`ratingColor`、`advice`），契約升 MINOR 1.1.0 | (b) 等於交出評分與 GCT 公式；MINOR 只新增選填欄位，舊檔仍可匯入 | 3.3；契約、`docs/server-api.md` |
-| D6 | 手動改步幅／身高／步頻／機位 | **(a)（使用者已接受新增端點）** 手動步幅純本地（配速四則運算）；身高、機位、重設自動、手動步頻改打以 summary 為輸入的重算端點（暫名 `POST /api/derive`：`summary`、`cadence`、`heightCm`、`cameraMode` → 與分析回應相同的衍生欄位＋關鍵幀） | 舊行為本來就是以 summary 重算，(a) 可逐值重現、不必重傳 landmarks，也解決 D7；(b) 重送 landmarks 改變舊行為；(c) 鎖定輸入是功能縮減 | 3.3 或獨立 Feature；沿用 `checkAccess`；`oninput` 須 debounce；`docs/server-api.md` 新增端點 |
+| D5 | 衍生數值由誰算 | (a) Server 回傳：`metrics` 新增選填欄位（例如 `metrics.gct`：`stancePct`、`flightLabel`、`skipHsuCompare`、`diffMs`、`hsuGctMs`、`rating`、`ratingText`、`ratingColor`、`advice`），契約升 MINOR 1.1.0 | (b) 等於交出評分與 GCT 公式；MINOR 只新增選填欄位，舊檔仍可匯入 | 3.3；契約、`docs/server-api.md`；**3.6 已落實 Server 端** |
+| D6 | 手動改步幅／身高／步頻／機位 | **(a)（使用者已接受新增端點）** 手動步幅純本地（配速四則運算）；身高、機位、重設自動、手動步頻改打以 summary 為輸入的重算端點（暫名 `POST /api/derive`：`summary`、`cadence`、`heightCm`、`cameraMode` → 與分析回應相同的衍生欄位＋關鍵幀） | 舊行為本來就是以 summary 重算，(a) 可逐值重現、不必重傳 landmarks，也解決 D7；(b) 重送 landmarks 改變舊行為；(c) 鎖定輸入是功能縮減 | 3.3 或獨立 Feature；沿用 `checkAccess`；`oninput` 須 debounce；`docs/server-api.md` 新增端點；**3.6 已落實 Server 端**：請求 `summary`／`cadence`／`heightCm`／`cameraMode`／`includeKeyframes`，回應 `metrics`（含 `gct`）、`phaseTiming`、`stride`、`autoStrideMeters`、選擇性 `cycleKeyframes`；與 `/api/analyze` 共用限流額度 |
 | D7 | 舊格式 JSON 匯入（選項：(a) 繼續支援；(b) 只接受帶合法 `cycleKeyframes` 的 v1 檔；(c) 停止匯入） | (a) 繼續支援：`validateAnalysisJSON`＋`normalizeCycleKeyframes` 在瀏覽器，衍生值與缺／不合法的關鍵幀由 D6 端點補；端點失敗時 alert 並中止、不改狀態；**不送 `profileName` 與檔名** | 契約第 4 節承諾 legacy 照常匯入；(b)(c) 須改契約的相容策略 | 3.3；`docs/privacy.md` |
 | D8 | 擷取期間的即時解算（選項：(a) 移除即時 HUD／同步骨架，閘門與方向交 Server；(b) `extractAnglesFromLandmarks`／`evaluateCaptureFrame` 進瀏覽器） | **(b)（使用者決定：全部保留）**：兩者移到非 server-only 的共用模組（暫名 `lib/landmarks/`，單一來源，`lib/core/` 與 Server 皆 import 它，零行為變更以 baseline 驗證）；Client 用於即時 HUD、即時同步骨架、自動方向與停止條件（55 幀）；Server 一律重跑閘門與角度擷取，不信任 Client | 使用者要保留即時體驗；代價是這兩個函式（角度公式與門檻）進入瀏覽器 bundle，保護範圍縮小為「評分、GCT、相位計時、步幅、骨架模型」 | 3.3（或先做小型 `refactor-` 抽出共用模組）；3.3 驗收「bundle 不含核心字串」須排除這兩個函式；`docs/privacy.md` 與 README 的「核心只在 server」敘述同步縮小範圍；**3.4 已落實（`evaluateProfileAngles` 拆分於 3.5）** |
 | D9 | 無影片模擬功能 | **保留（使用者決定）**：徐國峰預覽用 D1 取樣＋D3 烘焙關鍵幀；模擬擷取改為**預先烘焙一份合成 landmarks**（由烘焙腳本用核心產生並以測試固定），無影片時按擷取即送出這份資料走 `POST /api/analyze`，不再本地合成角度或本地分析 | Server 只收 landmarks；舊作法（合成角度再本地分析）需要 `evaluateProfileCycle`／`analyzeCapturedFrames` 進瀏覽器，不可行。注意：合成 landmarks 須能通過閘門且不被誤判，3.3 規格須驗證 | 3.3；烘焙腳本與測試 | **3.5 已落實**（原型探針與測試 S1–S7：60 幀合成 landmarks，172 cm／auto 得步頻 166、總分 35，與舊本地模擬同量級；見 `context/features/3-5-profile-baking-sim-capture.md`） |
@@ -158,7 +158,7 @@
 | ---- | ---- | ---- |
 | 契約 MINOR 1.1.0 | `metrics` 新增選填的 GCT 完整物件；`runDirection` 因 Client 仍即時偵測（D8）而非必要，可選填回傳供對照（D5）；`schemaVersion` 目前維持 `1.0.0`，本 Feature 不升版 | 3.3；更新 `docs/analysis-json-contract.md` |
 | 契約敘述修正 | 第 1.4、2.1 範例註解（`docs/analysis-json-contract.md:85`）、2.5 第 4 點的「退回本地運動學」改為「缺少或不合法時不顯示骨架並提示」（D2） | 3.3 |
-| 新端點 | `POST /api/derive`（暫名，D6）；輸入 `summary`、`cadence`、`heightCm`、`cameraMode`，不含 landmarks 與檔名 | 3.3 或獨立 Feature；更新 `docs/server-api.md` |
+| 新端點 | `POST /api/derive`（3.6 已建立，D6）；輸入 `summary`、`cadence`、`heightCm`、`cameraMode`，不含 landmarks 與檔名 | 3.3 或獨立 Feature；更新 `docs/server-api.md` |
 | 風險 | 端點讓「不經 MediaPipe 的請求」也能取得衍生值，輸入比 `/api/analyze` 更容易偽造（相當於可查詢評分公式的 oracle）；`/api/analyze` 已有同性質。限流仍僅盡力而為 | 3.3 規格如實記載 |
 
 ## 7. 隱私影響（`docs/privacy.md` 須在 3.2／3.3 同步）
@@ -178,6 +178,8 @@
 - **3.5（已完成，見 [規格](../context/features/3-5-profile-baking-sim-capture.md)）**：`lib/profiles/`（`builtin.js` 靜態資料、`baked-keyframes.js`、`sim-capture.js` 為 `npm run bake:profiles` 產生檔，測試逐字比對「烘焙 == 核心重算」）；`evaluateProfileAngles` 拆分、`lib/core/keyframes.js` 刪除；UI 無本地運動學退回、缺關鍵幀時不顯示骨架；模擬擷取改上傳合成 landmarks；`getActiveProfileTiming` 唯讀。
 - **3.4（已完成，見 [規格](../context/features/3-4-browser-shared-modules-bridge.md)）**：`lib/player/`（`normalizeCycleKeyframes`／`sampleCycleKeyframes`／常數在 `keyframes.js`，`solveKinematics` 在 `kinematics.js`，`parseManualStrideValue` 在 `stride-input.js`）與 `lib/landmarks/` 為單一來源，`lib/core/` 改由它們轉匯出（`lib/core/landmark-extract.js` 已刪除，`evaluateProfileAngles` 留在 `lib/core/keyframes.js:10`，3.5 拆分）。橋接：`npm run sync:legacy` 複製到 `public/modules/`（提交進 git，測試偵測漂移），`modules/bridge.js` 掛 `window.RFA`；舊 UI 6 組呼叫點（`js/analyzer.js`、`js/renderer.js`、`index.html:1386`、`:2064`）改為同行替換 `RFA.player.*`／`RFA.landmarks.*`。
 - **3.8（原 3.4）**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
+
+**3.6 完成（Server 端）與給 3.7 的交接**：`phaseTiming` 的正規化不冪等，3.7 只能在匯入時採用 derive 回傳的值，不可寫回 summary 再送，否則 `pullPct` 會再度漂移；Client 本地的 `NaN` 經 JSON 變 `null`，核心改用預設值，壞資料匯入檔可能與現在不同；`applyCapturedResult` 目前用切換前 profile 的 cadence（既有行為）；手動調整會與分析共用 30 次／60 秒額度，須 debounce；`public/js/config.js` 的 `analysisSchemaVersion` 待 3.7 升 1.1.0。
 
 ## 9. 既有缺陷（只記錄，不在 3.1 修）
 

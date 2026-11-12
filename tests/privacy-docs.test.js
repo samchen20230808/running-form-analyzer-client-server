@@ -33,7 +33,23 @@ describe("程式側", () => {
     expect(hits.map(([p]) => p)).toEqual(["lib/server/http-handler.js"]);
     const code = hits[0][1];
     expect(code.match(/console\./g)).toHaveLength(1);
-    expect(code).toContain('console.error("analyze failed")');
+    expect(code).toContain("console.error(FAIL_LOG[kind])");
+    expect(code).toContain('"analyze failed"');
+    expect(code).toContain('"derive failed"');
+  });
+
+  it("public/ 不含 /api/derive（3.6 Client 不呼叫；3.7 移除此斷言）", () => {
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(new URL(dir, ROOT), { withFileTypes: true })) {
+        const p = `${dir}${e.name}`;
+        if (e.isDirectory()) walk(`${p}/`);
+        else if (/\.(js|mjs|html|css|json)$/.test(e.name)) files.push(p);
+      }
+    };
+    walk("public/");
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) expect(read(f), f).not.toContain("/api/derive");
   });
 
   it("不讀 env、不寫檔、不對外連線、不用 cookie 或瀏覽器儲存", () => {
@@ -93,8 +109,12 @@ describe("文件側", () => {
     expect(api).not.toContain("即丟棄");
   });
 
-  it("privacy.md 記載 analyze failed", () => {
+  it("privacy.md 記載 analyze failed／derive failed／/api/derive", () => {
     expect(privacy).toContain("analyze failed");
+    expect(privacy).toContain("derive failed");
+    expect(privacy).toContain("/api/derive");
+    expect(api).toContain("/api/derive");
+    expect(api).toContain("16 KB");
   });
 
   it("README 版本與連結", () => {
