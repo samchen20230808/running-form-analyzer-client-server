@@ -9,7 +9,7 @@ import * as profiles from "../lib/profiles/index.js";
 const ROOT = new URL("../", import.meta.url);
 const read = (p) => readFileSync(new URL(p, ROOT), "utf8");
 const norm = (s) => s.replace(/\r\n/g, "\n");
-const MANAGED = ["player", "landmarks", "profiles"];
+const MANAGED = ["player", "landmarks", "profiles", "client"];
 
 function listFiles(dir) {
   const out = [];
@@ -168,13 +168,13 @@ describe("B1 public/modules 與 lib 同步", () => {
     }
   });
 
-  it("modules/ 只有受管理子目錄與 bridge.js；bridge.js 只 import 三個 index.js", () => {
+  it("modules/ 只有受管理子目錄與 bridge.js；bridge.js 只 import 四個 index.js", () => {
     expect(readdirSync(new URL("public/modules/", ROOT)).sort()).toEqual(
       ["bridge.js", ...MANAGED].sort(),
     );
     const imports = [...read("public/modules/bridge.js").matchAll(/from\s+["']([^"']+)["']/g)].map(
       (m) => m[1],
     );
-    expect(imports).toEqual(["./player/index.js", "./landmarks/index.js", "./profiles/index.js"]);
+    expect(imports).toEqual(["./player/index.js", "./landmarks/index.js", "./profiles/index.js", "./client/index.js"]);
   });
 });

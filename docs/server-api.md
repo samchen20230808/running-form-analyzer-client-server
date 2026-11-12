@@ -1,6 +1,6 @@
 # Server API（`POST /api/analyze`、`POST /api/derive`）
 
-> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** 3.3 起舊 Client 在影片擷取完成時呼叫 `/api/analyze`（不送 `profileName`）；3.6 起提供 `/api/derive`，Client 於 3.7 才呼叫；部署見 4.1（須先完成 3.7）。
+> ⚠️ 存取控制採同源模型（方案 A）。**限流為每個 serverless instance 的記憶體計數，僅盡力而為，不是嚴格配額。** 3.3 起舊 Client 在影片擷取完成時呼叫 `/api/analyze`（不送 `profileName`）；3.6 起提供 `/api/derive`，3.7 起 Client 在頁面載入、切換 profile、機位、身高、重設自動、手動步頻（debounce 400 ms）、擷取完成（1 次）與匯入（2 次）時呼叫，回應的 `phaseTiming` 只在匯入時被 Client 採用；部署見 4.1。
 
 輸入影片擷取期間的 MediaPipe landmarks，輸出符合 [分析結果 JSON 契約 v1.1.0](analysis-json-contract.md) 的結果（含 `summary`、`metrics`、101 幀 `cycleKeyframes`）。
 

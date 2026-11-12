@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = join(ROOT, "lib");
 const DEST = join(ROOT, "public", "modules");
-const MANAGED = ["player", "landmarks", "profiles"]; // 相對於 lib/
+const MANAGED = ["player", "landmarks", "profiles", "client"]; // 相對於 lib/
 
 function listFiles(dir) {
   return readdirSync(dir).flatMap((name) => {

@@ -1,12 +1,12 @@
 # AI 跑姿生物力學與骨架循環分析系統
 
-單一 Next.js 專案、單一 Vercel 部署（目標架構）：MediaPipe 留在瀏覽器擷取 landmarks，核心演算法只存在於 server-only 模組，Client 只負責擷取、呼叫 `/api/analyze` 與渲染結果。**3.2–3.7 過渡期例外**：瀏覽器暫時帶舊核心（`public/legacy/temp-core/`），見 [docs/client-server-boundary.md](docs/client-server-boundary.md)。
+單一 Next.js 專案、單一 Vercel 部署（目標架構）：MediaPipe 留在瀏覽器擷取 landmarks，核心演算法只存在於 server-only 模組，Client 只負責擷取、呼叫 `/api/analyze` 與渲染結果。3.7 起瀏覽器不再帶舊核心，邊界見 [docs/client-server-boundary.md](docs/client-server-boundary.md)。
 
 - 版本：V3.29（集中於 `lib/config.js` 的 `APP_CONFIG`，發版時同步本檔）
 
 ## 目前狀態
 
-Epic 0–2、3.1–3.6、3.9 完成（3.6：契約升 1.1.0（`metrics.gct`），新增 `POST /api/derive`（Server 端重算衍生值，Client 尚未呼叫，3.7 才改讀）；3.5：內建 profile 靜態資料與 101 幀烘焙關鍵幀、模擬擷取用的合成 landmarks 放在 `lib/profiles/`；修改 `lib/profiles/builtin.js` 後須執行 `npm run bake:profiles`（重新烘焙並同步到 `public/modules/`），測試會偵測過期；UI 不再有本地運動學退回路徑，缺關鍵幀時不顯示骨架並提示；3.4：角度擷取與骨架運動學等共用模組改為 `lib/player/`、`lib/landmarks/` 單一來源，經 `npm run sync:legacy` 同步到 `public/modules/` 並以 `window.RFA` 橋接；修改這兩個目錄後須重新同步）；`/` 導向舊 Client（`/index.html`，檔案在 `public/` 根目錄，`npm run dev` 後開 `http://localhost:3000/index.html`；暫時核心仍在 `public/legacy/temp-core/`，**3.7 完成前不可部署**）。3.3 起，影片擷取完成時會把 landmarks 上傳到 `/api/analyze`（不送 `profileName`）；無影片的模擬擷取同樣上傳（預先烘焙的合成 landmarks）到 `/api/analyze`（3.5 起）；JSON 匯入、手動調整與遙測仍在瀏覽器本地計算（3.7 處理）。尚未部署（Epic 4）。路線圖見 [docs/planning/epics-and-features.md](docs/planning/epics-and-features.md)。
+Epic 0–2、3.1–3.7、3.9 完成（3.7：Client 改讀 `/api/derive`（載入、切換 profile、機位、身高、重設自動、手動步頻〔debounce 400 ms〕、擷取完成、匯入時呼叫），移除暫時核心目錄與 `VERCEL` 部署防線，匯入壞檔（步頻不在 (0, 400] 或數值絕對值 > 1000）改為拒絕並提示；3.6：契約升 1.1.0（`metrics.gct`），新增 `POST /api/derive`（Server 端重算衍生值）；3.5：內建 profile 靜態資料與 101 幀烘焙關鍵幀、模擬擷取用的合成 landmarks 放在 `lib/profiles/`；修改 `lib/profiles/builtin.js` 後須執行 `npm run bake:profiles`（重新烘焙並同步到 `public/modules/`），測試會偵測過期；UI 不再有本地運動學退回路徑，缺關鍵幀時不顯示骨架並提示；3.4：角度擷取與骨架運動學等共用模組改為 `lib/player/`、`lib/landmarks/` 單一來源，經 `npm run sync:legacy` 同步到 `public/modules/` 並以 `window.RFA` 橋接；修改這兩個目錄後須重新同步）；`/` 導向舊 Client（`/index.html`，檔案在 `public/` 根目錄，`npm run dev` 後開 `http://localhost:3000/index.html`；可進 4.1）。3.3 起，影片擷取完成時會把 landmarks 上傳到 `/api/analyze`（不送 `profileName`）；無影片的模擬擷取同樣上傳（預先烘焙的合成 landmarks）到 `/api/analyze`（3.5 起）；JSON 匯入、手動調整與遙測改由 `/api/derive` 計算（3.7 起）。尚未部署（Epic 4）。路線圖見 [docs/planning/epics-and-features.md](docs/planning/epics-and-features.md)。
 
 ## 開發
 

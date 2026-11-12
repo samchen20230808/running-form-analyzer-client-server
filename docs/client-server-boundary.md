@@ -1,6 +1,6 @@
 # Client／Server 邊界與本地解算依賴盤點
 
-> 狀態：Feature 3.1 產出（調查，不改程式）。**3.5 已建立 `lib/profiles/` 並落實 D2／D3／D4／D9**（`evaluateProfileAngles` 改為 `lib/player/keyframes.js` 只看關鍵幀；`getActiveRunnerTiming` 由 `public/js/state.js` 的唯讀 `getActiveProfileTiming` 取代；UI 不再呼叫 `evaluateProfileCycle`，temp-core 的定義隨 3.7 刪除）。本文件描述 3.3 之後**預期**的邊界；**3.6 已建立契約 1.1.0（`metrics.gct`）與 `POST /api/derive`（Server 端；Client 要到 3.7 才改讀／呼叫）**。文中其餘「預期」描述仍待 3.7 落實（`lib/player/`、`lib/landmarks/` 已於 3.4 建立，`lib/profiles/` 已於 3.5 建立）。落實的 Feature 因 3.3 規格而重新編號：3.3 影片擷取呼叫 `/api/analyze`；3.4 D1／D8（`lib/player/`、`lib/landmarks/`、橋接）；3.5 D2–D4／D9（`lib/profiles/`、模擬擷取）；3.6 D5／D6 的 Server 端（契約 1.1.0、`POST /api/derive`）；3.7 D5–D7 的 Client 端與移除 temp-core；原 3.4 報告匯出改為 3.8。下文與決策表中的「3.3」除特別標示外，一律指「3.4–3.7」。
+> 狀態：Feature 3.1 產出（調查，不改程式）。**3.5 已建立 `lib/profiles/` 並落實 D2／D3／D4／D9**（`evaluateProfileAngles` 改為 `lib/player/keyframes.js` 只看關鍵幀；`getActiveRunnerTiming` 由 `public/js/state.js` 的唯讀 `getActiveProfileTiming` 取代；UI 不再呼叫 `evaluateProfileCycle`，temp-core 的定義隨 3.7 刪除）。本文件描述 3.3 之後**預期**的邊界；**3.6 已建立契約 1.1.0（`metrics.gct`）與 `POST /api/derive`（Server 端；Client 要到 3.7 才改讀／呼叫）**。3.7 已落實 D5–D7 的 Client 端並移除 temp-core（`lib/player/`、`lib/landmarks/` 已於 3.4 建立，`lib/profiles/` 已於 3.5 建立）。落實的 Feature 因 3.3 規格而重新編號：3.3 影片擷取呼叫 `/api/analyze`；3.4 D1／D8（`lib/player/`、`lib/landmarks/`、橋接）；3.5 D2–D4／D9（`lib/profiles/`、模擬擷取）；3.6 D5／D6 的 Server 端（契約 1.1.0、`POST /api/derive`）；3.7 D5–D7 的 Client 端與移除 temp-core；原 3.4 報告匯出改為 3.8。下文與決策表中的「3.3」除特別標示外，一律指「3.4–3.7」。
 > 規格：[`context/features/3-1-client-local-solve-inventory.md`](../context/features/3-1-client-local-solve-inventory.md)。
 
 ## 1. 目的與結論摘要
@@ -12,7 +12,7 @@
 3. **本地運動學退回路徑移除**：每個 profile 必須帶關鍵幀；內建 profile 改用離線烘焙的 101 幀關鍵幀。
 4. **衍生數值由 Server 回傳**：分析回應擴充 `metrics`（契約 MINOR 1.1.0）；改身高／機位／步頻與舊格式匯入經新的重算端點。
 5. **即時角度 HUD、即時同步骨架、無影片模擬擷取全部保留**（使用者決定）；代價是角度擷取與閘門進入瀏覽器 bundle，且模擬擷取須改為送出預先烘焙的合成 landmarks（D9）。
-6. **3.2 過渡期**：原樣搬入的 Client 暫時帶舊核心 script，3.2 完成後不部署，3.7 移除。
+6. **3.2 過渡期**：原樣搬入的 Client 暫時帶舊核心 script，3.2 完成後不部署，**3.7 已移除**。
 7. 發現 3 項既有缺陷（第 9 章），只記錄不修。
 
 ## 2. 盤點基準
@@ -179,7 +179,9 @@
 - **3.4（已完成，見 [規格](../context/features/3-4-browser-shared-modules-bridge.md)）**：`lib/player/`（`normalizeCycleKeyframes`／`sampleCycleKeyframes`／常數在 `keyframes.js`，`solveKinematics` 在 `kinematics.js`，`parseManualStrideValue` 在 `stride-input.js`）與 `lib/landmarks/` 為單一來源，`lib/core/` 改由它們轉匯出（`lib/core/landmark-extract.js` 已刪除，`evaluateProfileAngles` 留在 `lib/core/keyframes.js:10`，3.5 拆分）。橋接：`npm run sync:legacy` 複製到 `public/modules/`（提交進 git，測試偵測漂移），`modules/bridge.js` 掛 `window.RFA`；舊 UI 6 組呼叫點（`js/analyzer.js`、`js/renderer.js`、`index.html:1386`、`:2064`）改為同行替換 `RFA.player.*`／`RFA.landmarks.*`。
 - **3.8（原 3.4）**：報告匯出讀衍生結果（`js/report.js` 依賴見第 3 章 (4)），不得呼叫核心。
 
-**3.6 完成（Server 端）與給 3.7 的交接**：`phaseTiming` 的正規化不冪等，3.7 只能在匯入時採用 derive 回傳的值，不可寫回 summary 再送，否則 `pullPct` 會再度漂移；Client 本地的 `NaN` 經 JSON 變 `null`，核心改用預設值，壞資料匯入檔可能與現在不同；`applyCapturedResult` 目前用切換前 profile 的 cadence（既有行為）；手動調整會與分析共用 30 次／60 秒額度，須 debounce；`public/js/config.js` 的 `analysisSchemaVersion` 待 3.7 升 1.1.0。
+**3.7 完成**：Client 遙測、總分、GCT、狀態牌、波形色帶、機位／身高／重設自動／手動步頻重算改讀 `POST /api/derive`（`lib/client/` 組請求，`public/js/derive.js` 負責 debounce、序號丟棄過時回應與逐 profile 記憶）；匯入（D7）先前置檢查，再 derive 取得正規化 `phaseTiming`（全專案唯一寫回處）與缺少時的骨架，失敗則中止；擷取完成 1 次 derive 套用步幅；匯出 1.1.0 帶 `metrics`。已刪除 `public/legacy/temp-core/`、四個 script、`VERCEL` 部署防線。刻意行為變更：首次載入與未計算過的 profile 短暫顯示「更新中」；derive 失敗保留上一份數值並顯示錯誤；匯入需連線且壞檔（步頻不在 (0, 400] 或數值絕對值 > 1000）拒絕；舊格式匯入檔重新顯示骨架；匯入檔 `phaseTiming` 各值非 0–100 視為 null；非數字欄位走預設值；匯出 1.1.0；各操作消耗與 analyze 共用的限流額度。
+
+**3.6 完成（Server 端）與給 3.7 的交接（已於 3.7 處理）**：`phaseTiming` 的正規化不冪等，3.7 只能在匯入時採用 derive 回傳的值，不可寫回 summary 再送，否則 `pullPct` 會再度漂移；Client 本地的 `NaN` 經 JSON 變 `null`，核心改用預設值，壞資料匯入檔可能與現在不同；`applyCapturedResult` 目前用切換前 profile 的 cadence（既有行為）；手動調整會與分析共用 30 次／60 秒額度，須 debounce；`public/js/config.js` 的 `analysisSchemaVersion` 待 3.7 升 1.1.0。
 
 ## 9. 既有缺陷（只記錄，不在 3.1 修）
 

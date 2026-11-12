@@ -12,11 +12,11 @@
 
 ## 2. 目前狀態
 
-3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 只剩 temp-core）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取（3.5 起）也會呼叫一次 `/api/analyze`，送出的是預先烘焙的合成 landmarks（非使用者資料）與當下的身高、機位，不送檔名；JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。3.6 起 Server 另有重算端點 `/api/derive`（見第 3 節），但 Client 要到 3.7 才會呼叫，目前沒有任何資料送往該端點。
+3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 當時只剩暫時核心（3.7 已移除））。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫 `/api/analyze` 與 `/api/derive`（3.3、3.7 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取（3.5 起）也會呼叫一次 `/api/analyze`（3.7 起之後另有 1 次 `/api/derive`），送出的是預先烘焙的合成 landmarks（非使用者資料）與當下的身高、機位，不送檔名；3.7 起，頁面載入、切換 profile、機位、身高、重設自動、手動步頻與 JSON 匯入都會呼叫重算端點 `/api/derive`（見第 3 節）：**匯入 JSON 時會上傳其中的 summary 數值與 cadence**（不含 `profileName`、檔名、`timestamp`），其餘情境送出的是作用中 profile 的 summary；手動步幅只影響配速，在本地計算。
 
-**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。3.4 起，`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）以 `public/modules/` 的同步副本在瀏覽器執行，這是永久範圍，不是過渡期，且沒有新的資料流。3.5 起 `lib/profiles/`（內建 profile 靜態資料、烘焙關鍵幀、合成 landmarks）也以 `public/modules/` 公開，只有輸出、沒有公式。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
+3.7 起瀏覽器不再帶舊核心：評分、GCT、相位計時、步幅與骨架模型只在 Server；遙測與衍生值一律向 `/api/derive` 取得（無連線時保留上一份數值並顯示錯誤，匯入無法進行）。`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）與 `lib/client/`（組 derive 請求、匯入補預設值，只有欄位清單與上限、不含公式）以 `public/modules/` 的同步副本在瀏覽器執行，`lib/profiles/`（內建 profile 靜態資料、烘焙關鍵幀、合成 landmarks）也以 `public/modules/` 公開，只有輸出、沒有公式；這些是永久範圍。已知取捨：derive 可被任意 summary 反覆查詢（評分 oracle），限流僅盡力而為，不宣稱公式受保護。
 
-3.3 起，影片擷取完成時會上傳擷取期間的**每一幀** landmarks（最多 1500 幀，最多約 3.5 MB），Client **不送 `profileName`**，所以 API 回應不含影片檔名；但匯出的 JSON 的 `profileName` 由 Client 本地寫入，仍含影片檔名（與 3.2 相同）。3.7 完成時須再核對本文件。
+3.3 起，影片擷取完成時會上傳擷取期間的**每一幀** landmarks（最多 1500 幀，最多約 3.5 MB），Client **不送 `profileName`**，所以 API 回應不含影片檔名；但匯出的 JSON 的 `profileName` 由 Client 本地寫入，仍含影片檔名（與 3.2 相同）。
 
 ## 3. 上傳的資料
 
@@ -35,7 +35,7 @@
 - 無影片的模擬擷取（3.5 起）送出的 `frames[]` 是預先烘焙的合成 landmarks（`lib/profiles/sim-capture.js`），不是使用者資料；`heightCm`、`cameraMode` 取當下 UI 值，不送 `profileName`。
 - `profileName` 可能含影片檔名，**請勿放入個人資訊**：它會原樣出現在回應與匯出的 JSON。
 
-### `/api/derive`（3.6 起存在，3.7 起 Client 才使用）
+### `/api/derive`（3.6 起存在，3.7 起 Client 使用）
 
 | 欄位 | 意義 | 是否原樣帶回 |
 | ---- | ---- | ------------ |
@@ -65,7 +65,7 @@
 - 用途只有限流（`lib/server/access-control.js` `getClientIp`、`hit`）。
 - 取得方式：`x-forwarded-for` 第一段 → `x-real-ip` → 無法辨識時用共用桶 `unknown`。存取控制只讀 `sec-fetch-site`、`origin`、`host`、`x-forwarded-for`、`x-real-ip`，不讀 body、cookie 或 `Authorization`。
 - IP 只以明文作為限流計數的鍵，存在單一 serverless instance 的記憶體中，不寫入 log、檔案或任何外部服務，不與其他資料關聯，不回傳給 client。視窗（60 秒）過期後計數不再生效，但該筆紀錄要等到同一 IP 再次請求、追蹤筆數達 10,000 筆觸發清理，或 instance 被回收時才會從記憶體移除；因此最長可能保留到該 instance 結束為止。instance 的存活時間由平台決定。
-- 目前參數：每 IP 每 60 秒 30 次（`/api/analyze` 與 `/api/derive` 共用同一個計數）、最多追蹤 10,000 個 IP（`ACCESS_LIMITS`）。
+- 目前參數：每 IP 每 60 秒 30 次（`/api/analyze` 與 `/api/derive` 共用同一個計數；3.7 起各操作消耗：頁面載入 1、切換未算過的 profile 1、機位／身高／重設自動各 1、手動步頻 debounce 後 1、影片或模擬擷取 analyze 1＋derive 1、匯入 2）、最多追蹤 10,000 個 IP（`ACCESS_LIMITS`）。
 - 限流**僅盡力而為**，原因與限制見 [server-api.md](server-api.md#限流)。
 
 ## 7. 部署平台
@@ -98,6 +98,6 @@
 
 ## 11. 文件與程式的一致性
 
-`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：暫時核心只在 `public/legacy/temp-core/` 且帶 `TEMP-CORE` 標示、`app/`／`lib/` 不引用它、舊 Client 不使用瀏覽器儲存與其他外送通道、`fetch` 只有一處（`js/analyzer.js` 的相對路徑 `/api/analyze`）、上傳請求不含 `profileName`、上傳幀數上限不超過 `LIMITS`、`VERCEL` 環境的部署防線。`next.config.mjs` 在 build 時讀 `VERCEL` 作為部署防線，不屬 Server 執行期。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。
+`tests/privacy-docs.test.js` 檢查：`app/`、`lib/` 只有一處固定字串 log；不讀 env、不寫檔、不對外連線、不使用 cookie 或瀏覽器儲存；回應不含原始 landmarks；本文件與 `server-api.md` 的限流數值和安全標頭與程式一致；README 版本與 `APP_CONFIG.version` 相同。`tests/legacy-client.test.js` 檢查：`public/legacy/` 與暫時核心不存在、`app/`／`lib/` 不引用它、`next.config.mjs` 無部署防線、`public/**` 不含核心特有字串、舊 Client 不使用瀏覽器儲存與其他外送通道、`fetch` 恰好兩處（`js/analyzer.js` 的 `/api/analyze`、`js/derive.js` 的 `/api/derive`，皆相對路徑）、上傳請求不含 `profileName`、`phaseTiming` 只在匯入時寫回、上傳幀數上限不超過 `LIMITS`。這些檢查是字串比對，只能抓到「改了程式忘了文件」，不保證敘述正確。
 
 `tests/browser-modules.test.js` 檢查：`lib/player/`、`lib/landmarks/` 不含 server-only 相依與核心特有字串、只用同目錄相對 import，且與 `public/modules/` 的同步副本內容一致。

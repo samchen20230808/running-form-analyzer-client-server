@@ -1,8 +1,7 @@
-// 3.2 過渡期：原樣搬入的舊 Client 與暫時核心（temp-core）的隔離與防線。
-// 斷言刻意粗糙（存在性、字串包含）。3.7 移除 temp-core 時，本檔須一併改寫。
-// 3.9 起頁面在 public/ 根目錄，temp-core 仍在 public/legacy/temp-core/。
+// 舊 Client（public/）的靜態檢查。斷言刻意粗糙（存在性、字串包含）。
+// 3.7：temp-core 與部署防線已移除；衍生值改讀 /api/derive，瀏覽器不含任何核心公式。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../lib/config.js";
 import { LIMITS } from "../lib/server/validate-request.js";
 
@@ -20,13 +19,18 @@ function listFiles(dir, ext) {
   return out;
 }
 
-describe("temp-core 隔離與標示", () => {
-  it("public/legacy/temp-core/ 恰好有四個核心檔，第一行以 // TEMP-CORE 開頭", () => {
-    const files = readdirSync(new URL("public/legacy/temp-core/", ROOT)).sort();
-    expect(files).toEqual([...CORE_FILES].sort());
-    for (const f of files) {
-      expect(read(`public/legacy/temp-core/${f}`).startsWith("// TEMP-CORE")).toBe(true);
-    }
+const clientFiles = () => [...listFiles("public/js/", ".js"), "public/index.html"];
+const importFn = () => {
+  const an = read("public/js/analyzer.js");
+  return an.slice(an.indexOf("function importAnalysisJSON"), an.indexOf("function exportAnalysisJSON"));
+};
+
+describe("M 3.7 temp-core 已移除", () => {
+  it("M1 public/legacy/ 不存在；index.html 不含 temp-core、legacy/", () => {
+    expect(existsSync(new URL("public/legacy", ROOT))).toBe(false);
+    const html = read("public/index.html");
+    expect(html).not.toContain("temp-core");
+    expect(html).not.toContain("legacy/");
   });
 
   it("核心檔名不出現在 public/js/", () => {
@@ -42,18 +46,30 @@ describe("temp-core 隔離與標示", () => {
     }
   });
 
-  it("next.config.mjs 只在部署防線處提到 temp-core", () => {
-    const hits = read("next.config.mjs")
-      .split("\n")
-      .filter((l) => l.includes("temp-core"));
-    expect(hits.filter((l) => !l.trim().startsWith("//"))).toHaveLength(2);
+  it("M2 next.config.mjs 不含部署防線", () => {
+    const src = read("next.config.mjs");
+    for (const w of ["VERCEL", "existsSync", "temp-core"]) expect(src).not.toContain(w);
   });
 
-  it("index.html 以 legacy/temp-core/ 載入四個核心，不再引用舊路徑", () => {
-    const html = read("public/index.html");
-    for (const f of CORE_FILES) {
-      expect(html).toContain(`src="legacy/temp-core/${f}"`);
-      expect(html).not.toContain(`src="js/${f}"`);
+  it("M3 eslint.config.mjs 不含 public/legacy", () => {
+    expect(read("eslint.config.mjs")).not.toContain("public/legacy");
+  });
+
+  it("M4 public/**（含 modules/）不含核心特有字串或核心函式名", () => {
+    const markers = [
+      "嚴重跨步煞車或身後推蹬",
+      "🚶 行走步態 (雙腳交替支撐 • 零騰空)",
+      "overstrideDelay",
+      "lazyPullDelay",
+      "computeCycleSummaryStats",
+      "detectCadenceFromFrames",
+      "generatePoseMethodAlignedCycle",
+      "computeGctMetrics",
+      "calculateOverallRunningScore",
+      "computePersonalizedPhaseTiming",
+    ];
+    for (const p of [...listFiles("public/", ".js"), "public/index.html"]) {
+      for (const m of markers) expect(read(p), `${p}: ${m}`).not.toContain(m);
     }
   });
 });
@@ -65,8 +81,7 @@ describe("舊 Client 的一致性", () => {
   });
 
   it("不使用瀏覽器儲存與其他外送通道", () => {
-    const files = [...listFiles("public/", ".js"), "public/index.html"];
-    for (const p of files) {
+    for (const p of [...listFiles("public/", ".js"), "public/index.html"]) {
       const src = read(p);
       for (const banned of [
         /localStorage/,
@@ -83,7 +98,7 @@ describe("舊 Client 的一致性", () => {
     }
   });
 
-  it("fetch 只有一處：public/js/analyzer.js 的相對路徑 /api/analyze", () => {
+  it("U2 fetch 恰好兩處：analyzer.js 的 /api/analyze、derive.js 的 /api/derive（相對路徑）", () => {
     const hits = [];
     for (const p of [...listFiles("public/", ".js"), "public/index.html"]) {
       const lines = read(p).split(/\r?\n/);
@@ -91,16 +106,16 @@ describe("舊 Client 的一致性", () => {
         if (/\bfetch\s*\(/.test(l)) hits.push({ p, text: `${l} ${lines[i + 1] ?? ""}` });
       });
     }
-    expect(hits).toHaveLength(1);
-    expect(hits[0].p).toBe("public/js/analyzer.js");
-    expect(hits[0].text).toContain('"/api/analyze"');
-    expect(hits[0].text).not.toMatch(/https?:/);
+    expect(hits.map((h) => h.p).sort()).toEqual(["public/js/analyzer.js", "public/js/derive.js"]);
+    for (const h of hits) expect(h.text).not.toMatch(/https?:/);
+    expect(hits.find((h) => h.p.endsWith("analyzer.js")).text).toContain('"/api/analyze"');
+    expect(hits.find((h) => h.p.endsWith("derive.js")).text).toContain('"/api/derive"');
   });
 
   it("上傳請求不含 profileName（含影片檔名），也不送 z", () => {
     const src = read("public/js/analyzer.js");
     const start = src.indexOf("async function requestServerAnalysis");
-    const end = src.indexOf("function buildSafeSummaryFromJSON");
+    const end = src.indexOf("// 純函式：驗證分析結果 JSON 契約");
     const fn = src.slice(start, end);
     expect(start).toBeGreaterThan(-1);
     expect(fn).not.toContain("profileName");
@@ -121,50 +136,9 @@ describe("舊 Client 的一致性", () => {
     }
     expect(read("public/index.html")).not.toContain("customCycleFrames");
   });
-
-  it("public/ 中核心特有字串只出現在 temp-core/", () => {
-    const marker = "嚴重跨步煞車或身後推蹬";
-    for (const p of listFiles("public/", ".js")) {
-      if (p.startsWith("public/legacy/temp-core/")) continue;
-      expect(read(p), p).not.toContain(marker);
-    }
-    expect(read("public/index.html")).not.toContain(marker);
-  });
 });
 
 describe("3.4 橋接與切換", () => {
-  const norm = (t) => t.replace(/\r\n/g, "\n");
-  // 擷取頂層函式／常數：從宣告起，到下一個位於第 0 欄的 } 或 ];
-  function extract(src, name) {
-    const text = norm(src).replace(/^export /gm, "");
-    const start = text.search(new RegExp(`^(function|const)\\s+${name}\\b`, "m"));
-    if (start < 0) return null;
-    const rest = text.slice(start);
-    const firstLine = rest.split("\n")[0];
-    if (firstLine.startsWith("const") && firstLine.endsWith(";")) return firstLine;
-    const m = rest.match(/\n(\}|\];)\n/);
-    return rest.slice(0, m.index + m[0].length);
-  }
-  const SOURCES = {
-    CYCLE_KEYFRAME_NUMERIC_FIELDS: ["lib/player/keyframes.js", "keyframes.js"],
-    CYCLE_KEYFRAME_MIN_FRAMES: ["lib/player/keyframes.js", "keyframes.js"],
-    normalizeCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
-    sampleCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
-    extractAnglesFromLandmarks: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
-    evaluateCaptureFrame: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
-    parseManualStrideValue: ["lib/player/stride-input.js", "biomechanics.js"],
-    solveKinematics: ["lib/player/kinematics.js", "biomechanics.js"],
-  };
-
-  it("C1 新模組的函式本體與 temp-core 相同", () => {
-    for (const [name, [lib, tc]] of Object.entries(SOURCES)) {
-      const a = extract(read(lib), name);
-      const b = extract(read(`public/legacy/temp-core/${tc}`), name);
-      expect(a, `${name} (lib)`).not.toBeNull();
-      expect(a, name).toBe(b);
-    }
-  });
-
   it("C2 index.html 與 analyzer.js 同一行載入 bridge.js，且只有一次", () => {
     const html = read("public/index.html");
     const tag = '<script type="module" src="modules/bridge.js"></script>';
@@ -182,8 +156,34 @@ describe("3.4 橋接與切換", () => {
       "parseManualStrideValue",
       "evaluateProfileAngles",
     ];
-    const files = [...listFiles("public/js/", ".js"), "public/index.html"];
-    for (const p of files) {
+    for (const p of clientFiles()) {
+      const src = read(p);
+      for (const n of names) {
+        expect(src, `${p}: ${n}`).not.toMatch(new RegExp(`(?<![.\\w])${n}\\s*\\(`));
+      }
+    }
+  });
+});
+
+describe("U 3.7 衍生值改讀 /api/derive", () => {
+  it("U1 UI 不再呼叫任何核心函式", () => {
+    const names = [
+      "computeGctMetrics",
+      "computeAutoStrideMeters",
+      "computeStrideForCameraMode",
+      "calculateOverallRunningScore",
+      "computePersonalizedPhaseTiming",
+      "generatePoseMethodAlignedCycle",
+      "buildCycleKeyframesFromSummary",
+      "analyzeCapturedFrames",
+      "detectCadenceFromFrames",
+      "computeCycleSummaryStats",
+      "computeMeasuredPixelStride",
+      "evaluateProfileCycle",
+      "getActiveRunnerTiming",
+      "recalculateStrideForCameraMode",
+    ];
+    for (const p of clientFiles()) {
       const src = read(p);
       for (const n of names) {
         expect(src, `${p}: ${n}`).not.toMatch(new RegExp(`(?<![.\\w])${n}\\s*\\(`));
@@ -191,43 +191,74 @@ describe("3.4 橋接與切換", () => {
     }
   });
 
-  it("C4 modules/ 不含核心特有字串", () => {
-    const markers = [
-      "嚴重跨步煞車或身後推蹬",
-      "generatePoseMethodAlignedCycle",
-      "computeGctMetrics",
-      "calculateOverallRunningScore",
-    ];
-    for (const p of listFiles("public/modules/", ".js")) {
-      for (const m of markers) expect(read(p), `${p}: ${m}`).not.toContain(m);
-    }
+  it("U3 derive.js 以 RFA.client.buildDeriveBody 組 body，不含 profileName／frames", () => {
+    const src = read("public/js/derive.js");
+    expect(src).toContain("RFA.client.buildDeriveBody");
+    expect(src).not.toContain("profileName");
+    expect(src).not.toContain("frames");
+    expect(importFn()).toContain("RFA.client.buildDeriveBody");
+    expect(importFn()).not.toContain("profileName");
+  });
+
+  it("U4 phaseTiming 只在匯入時寫回 summary", () => {
+    expect(read("public/js/derive.js")).not.toMatch(/\.phaseTiming\b/);
+    const hits = clientFiles().filter((p) => /\.phaseTiming\s*=[^=]/.test(read(p)));
+    expect(hits).toEqual(["public/js/analyzer.js"]);
+    expect(importFn()).toContain("safeSummary.phaseTiming = r.data.phaseTiming");
+  });
+
+  it("U5 手動步頻 debounce", () => {
+    const m = read("public/js/derive.js").match(/DERIVE_DEBOUNCE_MS\s*=\s*(\d+)/);
+    expect(Number(m?.[1])).toBeGreaterThanOrEqual(250);
+    const html = read("public/index.html");
+    const fn = html.slice(html.indexOf("function onManualCadenceInput"));
+    expect(fn.slice(0, 400)).toContain("scheduleDerive({ delayMs: DERIVE_DEBOUNCE_MS })");
+  });
+
+  it("U6 config.js 的 analysisSchemaVersion 等於 lib/config.js（1.1.0）", () => {
+    const m = read("public/js/config.js").match(/analysisSchemaVersion:\s*"([^"]+)"/);
+    expect(m?.[1]).toBe(APP_CONFIG.analysisSchemaVersion);
+    expect(m?.[1]).toBe("1.1.0");
+  });
+
+  it("U7 exportAnalysisJSON 帶 metrics 且以 isDerivedCurrent 把關", () => {
+    const an = read("public/js/analyzer.js");
+    const fn = an.slice(an.indexOf("function exportAnalysisJSON"));
+    expect(fn).toContain("if (isDerivedCurrent(profile)) payload.metrics = profile.derived.result.metrics");
+  });
+
+  it("U8 updatePhaseTimingUI 無備援；renderer 的 GCT 經 getActiveDerived 且有 null 防護", () => {
+    const h = read("public/index.html");
+    const fn = h.slice(h.indexOf("function updatePhaseTimingUI"), h.indexOf("function updateTelemetryAndDiagnostics"));
+    expect(fn).not.toContain("computeGctMetrics");
+    expect(fn).toContain("if (!gct) return");
+    const r = read("public/js/renderer.js");
+    expect(r.split("getActiveDerived()?.metrics.gct ?? null").length - 1).toBe(2);
+    expect(r).toContain("if (!gct) return");
+    expect(r).toContain("if (gct) {");
+  });
+
+  it("U9 index.html 載入 derive.js 恰好一次，位於 analyzer.js 那一行之前", () => {
+    const h = read("public/index.html");
+    expect(h.split('<script src="js/derive.js"></script>')).toHaveLength(2);
+    expect(h.indexOf('src="js/derive.js"')).toBeLessThan(h.indexOf('src="js/analyzer.js"'));
   });
 });
 
 describe("F 3.5 移除的本地解算", () => {
-  const files = () => [...listFiles("public/js/", ".js"), "public/index.html"];
-
-  it("F1 UI 不再呼叫本地解算函式", () => {
-    for (const p of files()) {
-      const src = read(p);
-      for (const n of ["evaluateProfileCycle", "getActiveRunnerTiming", "generatePoseMethodAlignedCycle", "analyzeCapturedFrames"]) {
-        expect(src, `${p}: ${n}`).not.toMatch(new RegExp(`(?<![.\\w])${n}\\s*\\(`));
-      }
-    }
-  });
-
   it("F2 config.js 不含 profile 靜態資料", () => {
     const src = read("public/js/config.js");
     expect(src).not.toContain("touchdownKnee");
     expect(src).not.toContain("phaseTiming");
   });
 
-  it("F3 DOMContentLoaded 先 initRunnerProfiles() 再更新遙測", () => {
+  it("F3 DOMContentLoaded 先 initRunnerProfiles() 再排程 derive 與更新遙測", () => {
     const html = read("public/index.html");
-    const i = html.indexOf('addEventListener("DOMContentLoaded"');
-    const body = html.slice(i);
-    expect(body.indexOf("initRunnerProfiles()")).toBeGreaterThan(-1);
-    expect(body.indexOf("initRunnerProfiles()")).toBeLessThan(body.indexOf("updateTelemetryAndDiagnostics()"));
+    const body = html.slice(html.indexOf('addEventListener("DOMContentLoaded"'));
+    const init = body.indexOf("initRunnerProfiles()");
+    expect(init).toBeGreaterThan(-1);
+    expect(init).toBeLessThan(body.indexOf("scheduleDerive()"));
+    expect(init).toBeLessThan(body.indexOf("updateTelemetryAndDiagnostics()"));
   });
 
   it("F4 getActiveProfileTiming 唯讀，不重算 phaseTiming", () => {
@@ -249,21 +280,10 @@ describe("F5 renderer 軌跡取樣依賴關鍵幀", () => {
 });
 
 describe("E 3.9 頁面位置", () => {
-  it("E1 public/legacy/ 只剩 temp-core，頁面與資源在 public/ 根目錄", () => {
-    expect(readdirSync(new URL("public/legacy/", ROOT))).toEqual(["temp-core"]);
+  it("E1 public/legacy 不存在，頁面與資源在 public/ 根目錄", () => {
+    expect(existsSync(new URL("public/legacy", ROOT))).toBe(false);
     for (const p of ["index.html", "js", "styles/main.css", "modules/bridge.js"]) {
       expect(existsSync(new URL(`public/${p}`, ROOT)), p).toBe(true);
-    }
-    for (const p of ["index.html", "js", "modules", "styles"]) {
-      expect(existsSync(new URL(`public/legacy/${p}`, ROOT)), p).toBe(false);
-    }
-  });
-
-  it("E2 index.html 以 legacy/temp-core/ 各載入一次，不含失效的相對路徑", () => {
-    const html = read("public/index.html");
-    expect(html).not.toContain('src="temp-core/');
-    for (const f of CORE_FILES) {
-      expect(html.split(`src="legacy/temp-core/${f}"`).length - 1, f).toBe(1);
     }
   });
 
@@ -271,26 +291,18 @@ describe("E 3.9 頁面位置", () => {
     expect(read("next.config.mjs").match(/source:\s*"\/legacy/g)).toBeNull();
     expect(read("next.config.mjs")).not.toContain('destination: "/legacy');
   });
-});
 
-describe("部署防線", () => {
-  const saved = process.env.VERCEL;
-  afterEach(() => {
-    if (saved === undefined) delete process.env.VERCEL;
-    else process.env.VERCEL = saved;
-  });
-
-  it("VERCEL 存在且 temp-core 存在時載入 next.config.mjs 會拋錯", async () => {
-    expect(existsSync(new URL("public/legacy/temp-core", ROOT))).toBe(true);
+  it("VERCEL 環境可載入 next.config.mjs，並把 / 導向 /index.html", async () => {
+    const saved = process.env.VERCEL;
     process.env.VERCEL = "1";
-    await expect(import("../next.config.mjs?guard-on")).rejects.toThrow(/temp-core/);
-  });
-
-  it("未設定 VERCEL 時正常載入，並把 / 導向 /index.html", async () => {
-    delete process.env.VERCEL;
-    const mod = await import("../next.config.mjs?guard-off");
-    expect(await mod.default.redirects()).toEqual([
-      { source: "/", destination: "/index.html", permanent: false },
-    ]);
+    try {
+      const mod = await import("../next.config.mjs?vercel-on");
+      expect(await mod.default.redirects()).toEqual([
+        { source: "/", destination: "/index.html", permanent: false },
+      ]);
+    } finally {
+      if (saved === undefined) delete process.env.VERCEL;
+      else process.env.VERCEL = saved;
+    }
   });
 });

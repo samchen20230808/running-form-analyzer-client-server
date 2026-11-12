@@ -217,7 +217,8 @@ function drawSimulator() {
   }
 
   // ★ 骨架模擬器即時觸地/騰空狀態指示牌 (Stance vs Flight HUD)
-  const gct = computeGctMetrics(activeProfile.summary, activeProfile.cadence);
+  const gct = getActiveDerived()?.metrics.gct ?? null;
+  if (!gct) return; // 尚無 derive 結果：不畫狀態牌
   const stanceP = (gct.stancePct || 35) / 100;
   let isStance = false;
   let legName = "";
@@ -587,48 +588,47 @@ function drawWaveform() {
 
   const activeProfile =
     RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
-  const gct = computeGctMetrics(
-    activeProfile.summary,
-    activeProfile.cadence,
-  );
-  const stancePct = gct.stancePct || 35;
+  const gct = getActiveDerived()?.metrics.gct ?? null;
+  const stancePct = gct ? gct.stancePct || 35 : null;
 
-  // ★ 繪製觸地支撐期 (Stance 🔴) 與 騰空飛行期 (Flight 🔵) 區域色帶
-  // 階段 1：左腳著地 (0% ~ stancePct%)
-  const xStance1 = padL;
-  const wStance1 = (stancePct / 100) * plotW;
-  waveCtx.fillStyle = "rgba(244, 63, 94, 0.13)";
-  waveCtx.fillRect(xStance1, padT, wStance1, plotH);
+  if (gct) {
+    // ★ 繪製觸地支撐期 (Stance 🔴) 與 騰空飛行期 (Flight 🔵) 區域色帶
+    // 階段 1：左腳著地 (0% ~ stancePct%)
+    const xStance1 = padL;
+    const wStance1 = (stancePct / 100) * plotW;
+    waveCtx.fillStyle = "rgba(244, 63, 94, 0.13)";
+    waveCtx.fillRect(xStance1, padT, wStance1, plotH);
 
-  // 階段 2：騰空期 (stancePct% ~ 50%)
-  const xFlight1 = xStance1 + wStance1;
-  const wFlight1 = ((50 - stancePct) / 100) * plotW;
-  waveCtx.fillStyle = "rgba(56, 189, 248, 0.08)";
-  waveCtx.fillRect(xFlight1, padT, wFlight1, plotH);
+    // 階段 2：騰空期 (stancePct% ~ 50%)
+    const xFlight1 = xStance1 + wStance1;
+    const wFlight1 = ((50 - stancePct) / 100) * plotW;
+    waveCtx.fillStyle = "rgba(56, 189, 248, 0.08)";
+    waveCtx.fillRect(xFlight1, padT, wFlight1, plotH);
 
-  // 階段 3：右腳著地 (50% ~ 50% + stancePct%)
-  const xStance2 = padL + 0.5 * plotW;
-  const wStance2 = (stancePct / 100) * plotW;
-  waveCtx.fillStyle = "rgba(244, 63, 94, 0.13)";
-  waveCtx.fillRect(xStance2, padT, wStance2, plotH);
+    // 階段 3：右腳著地 (50% ~ 50% + stancePct%)
+    const xStance2 = padL + 0.5 * plotW;
+    const wStance2 = (stancePct / 100) * plotW;
+    waveCtx.fillStyle = "rgba(244, 63, 94, 0.13)";
+    waveCtx.fillRect(xStance2, padT, wStance2, plotH);
 
-  // 階段 4：騰空期 (50% + stancePct% ~ 100%)
-  const xFlight2 = xStance2 + wStance2;
-  const wFlight2 = ((50 - stancePct) / 100) * plotW;
-  waveCtx.fillStyle = "rgba(56, 189, 248, 0.08)";
-  waveCtx.fillRect(xFlight2, padT, wFlight2, plotH);
+    // 階段 4：騰空期 (50% + stancePct% ~ 100%)
+    const xFlight2 = xStance2 + wStance2;
+    const wFlight2 = ((50 - stancePct) / 100) * plotW;
+    waveCtx.fillStyle = "rgba(56, 189, 248, 0.08)";
+    waveCtx.fillRect(xFlight2, padT, wFlight2, plotH);
 
-  // 頂部標註著地與騰空文字
-  waveCtx.save();
-  waveCtx.font = 'bold 9px "Noto Sans TC"';
-  waveCtx.fillStyle = "rgba(244, 63, 94, 0.9)";
-  waveCtx.fillText(`👟 左腳著地 ${gct.gctMs}ms`, xStance1 + 4, padT + 11);
-  waveCtx.fillText(`👟 右腳著地 ${gct.gctMs}ms`, xStance2 + 4, padT + 11);
-  waveCtx.fillStyle = "rgba(56, 189, 248, 0.85)";
-  const flightText = gct.flightLabel || `🕊️ 騰空 ${gct.flightMs}ms`;
-  waveCtx.fillText(flightText, xFlight1 + 4, padT + 11);
-  waveCtx.fillText(flightText, xFlight2 + 4, padT + 11);
-  waveCtx.restore();
+    // 頂部標註著地與騰空文字
+    waveCtx.save();
+    waveCtx.font = 'bold 9px "Noto Sans TC"';
+    waveCtx.fillStyle = "rgba(244, 63, 94, 0.9)";
+    waveCtx.fillText(`👟 左腳著地 ${gct.gctMs}ms`, xStance1 + 4, padT + 11);
+    waveCtx.fillText(`👟 右腳著地 ${gct.gctMs}ms`, xStance2 + 4, padT + 11);
+    waveCtx.fillStyle = "rgba(56, 189, 248, 0.85)";
+    const flightText = gct.flightLabel || `🕊️ 騰空 ${gct.flightMs}ms`;
+    waveCtx.fillText(flightText, xFlight1 + 4, padT + 11);
+    waveCtx.fillText(flightText, xFlight2 + 4, padT + 11);
+    waveCtx.restore();
+  }
 
   waveCtx.strokeStyle = "#1E293B";
   waveCtx.lineWidth = 1;
