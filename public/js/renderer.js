@@ -42,7 +42,7 @@ function drawSimulator() {
 
   const activeProfile =
     RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
-  const timing = getActiveRunnerTiming();
+  const timing = getActiveProfileTiming();
   const useLiveOverride =
     livePoseOverride && document.getElementById("liveSyncToggle").checked;
   const activeAngles = useLiveOverride
@@ -52,7 +52,13 @@ function drawSimulator() {
   const refProfile = RUNNER_PROFILES.hsu_pose_method;
   const refAngles = refProfile.evalCycle(p);
 
-  const activePose = RFA.player.solveKinematics(activeAngles, originX, groundY, 1.0);
+  // 3.5：缺關鍵幀時 evalCycle 回傳 null → 不畫主角骨架並提示
+  const hasActive = Boolean(activeAngles);
+  // 軌跡與相位標記取樣整個週期，依賴關鍵幀（即時同步時 hasActive 為 true 但 profile 可能沒有關鍵幀）
+  const hasKeyframes = Boolean(activeProfile.cycleKeyframes);
+  const activePose = hasActive
+    ? RFA.player.solveKinematics(activeAngles, originX, groundY, 1.0)
+    : null;
   const refPose = RFA.player.solveKinematics(refAngles, originX, groundY, 1.0);
 
   if (layers.trail) {
@@ -79,7 +85,7 @@ function drawSimulator() {
     simCtx.restore();
 
     const trailPoints = [];
-    for (let i = 0; i <= steps; i++) {
+    for (let i = 0; hasKeyframes && i <= steps; i++) {
       const tp = (i % steps) / steps;
       const tPose = RFA.player.solveKinematics(
         activeProfile.evalCycle(tp),
@@ -97,7 +103,7 @@ function drawSimulator() {
     simCtx.save();
     simCtx.lineCap = "round";
     simCtx.lineJoin = "round";
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; hasKeyframes && i < steps; i++) {
       const p1 = trailPoints[i];
       const p2 = trailPoints[i + 1];
       simCtx.beginPath();
@@ -138,7 +144,7 @@ function drawSimulator() {
         dy: 14,
       },
     ];
-    phaseMarkers.forEach((m) => {
+    (hasKeyframes ? phaseMarkers : []).forEach((m) => {
       const mPose = RFA.player.solveKinematics(
         activeProfile.evalCycle(m.pct),
         originX,
@@ -170,14 +176,17 @@ function drawSimulator() {
     });
   }
 
-  drawRunnerSilhouette(simCtx, activePose, activeProfile.appearance);
-  drawSkeletonFigure(simCtx, activePose, {
-    isGhost: false,
-    mainColor: "#06B6D4",
-    farColor: "#94A3B8",
-  });
+  if (hasActive) {
+    drawRunnerSilhouette(simCtx, activePose, activeProfile.appearance);
+    drawSkeletonFigure(simCtx, activePose, {
+      isGhost: false,
+      mainColor: "#06B6D4",
+      farColor: "#94A3B8",
+    });
+  }
+  if (!hasKeyframes) drawNoKeyframesNotice(simCtx, W, 200);
 
-  if (layers.trail) {
+  if (hasActive && layers.trail) {
     simCtx.save();
     const curPhaseColor = getRightLegTrailColor(p, timing);
     simCtx.beginPath();
@@ -194,16 +203,18 @@ function drawSimulator() {
     simCtx.restore();
   }
 
-  drawBiomechAnnotations(
-    simCtx,
-    activePose,
-    refPose,
-    activeAngles,
-    groundY,
-    p,
-    W,
-    timing,
-  );
+  if (hasActive) {
+    drawBiomechAnnotations(
+      simCtx,
+      activePose,
+      refPose,
+      activeAngles,
+      groundY,
+      p,
+      W,
+      timing,
+    );
+  }
 
   // ★ 骨架模擬器即時觸地/騰空狀態指示牌 (Stance vs Flight HUD)
   const gct = computeGctMetrics(activeProfile.summary, activeProfile.cadence);
@@ -258,6 +269,20 @@ function drawSimulator() {
       : `雙腳騰空中 (Flight • ${gct.flightMs}ms)`;
   simCtx.fillText(badgeText, badgeX + 24, badgeY + badgeH / 2);
   simCtx.restore();
+}
+
+// 3.5：作用中 profile 沒有骨架關鍵幀（例如匯入舊格式分析檔）時的提示；遙測與診斷數值不受影響
+function drawNoKeyframesNotice(ctx, W, y) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = 'bold 14px "Noto Sans TC"';
+  ctx.fillStyle = "#FCD34D";
+  ctx.fillText("此分析檔缺少骨架關鍵幀，無法顯示動畫", W / 2, y);
+  ctx.font = '12px "Noto Sans TC"';
+  ctx.fillStyle = "#94A3B8";
+  ctx.fillText("遙測與診斷數值不受影響", W / 2, y + 22);
+  ctx.restore();
 }
 
 function drawRunnerSilhouette(ctx, pose, app) {
@@ -615,7 +640,7 @@ function drawWaveform() {
     waveCtx.stroke();
   });
 
-  const timing = getActiveRunnerTiming();
+  const timing = getActiveProfileTiming();
   const keyMarks = [
     {
       pct: timing.touchPct,
@@ -675,7 +700,8 @@ function drawWaveform() {
   waveCtx.strokeStyle = "#10B981";
   waveCtx.lineWidth = 2.5;
   waveCtx.beginPath();
-  for (let i = 0; i <= 100; i += 2) {
+  // 3.5：缺關鍵幀時主角曲線不畫
+  for (let i = 0; activeProfile.cycleKeyframes && i <= 100; i += 2) {
     const a = activeProfile.evalCycle(i / 100);
     const x = padL + (i / 100) * plotW;
     const y = padT + plotH - ((a.rKnee + 25) / 140) * plotH;
@@ -687,7 +713,8 @@ function drawWaveform() {
   waveCtx.strokeStyle = "#38BDF8";
   waveCtx.lineWidth = 2;
   waveCtx.beginPath();
-  for (let i = 0; i <= 100; i += 2) {
+  // 3.5：缺關鍵幀時主角曲線不畫
+  for (let i = 0; activeProfile.cycleKeyframes && i <= 100; i += 2) {
     const a = activeProfile.evalCycle(i / 100);
     const x = padL + (i / 100) * plotW;
     const y = padT + plotH - ((a.rThigh + 35) / 100) * plotH;

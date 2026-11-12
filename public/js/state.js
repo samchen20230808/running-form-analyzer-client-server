@@ -32,3 +32,10 @@ let capturedLandmarkFrames = []; // 擷取期間每一幀的 sanitized landmarks
 let captureStart = null; // 擷取開始時的方向／身高，Server 從同一起點重跑
 let captureSeq = 0; // 換影片或重新擷取就遞增，用來丟棄過時回應
 let isAnalyzingRemote = false;
+
+// 3.5（D4）：唯讀取值，不重算、不改寫 summary（消除 pullPct 漂移）
+function getActiveProfileTiming() {
+  const profile =
+    RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
+  return profile.summary.phaseTiming;
+}

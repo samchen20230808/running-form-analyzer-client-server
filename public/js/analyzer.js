@@ -133,24 +133,17 @@ function triggerCycleExtraction() {
     syncVideoPlayButtonUI();
     processVideoFrameLoop();
   } else {
-    // 模擬訊號 Fallback 保持不變
-    const srcProfile = RUNNER_PROFILES.night_track_runner;
-    for (let i = 0; i < 45; i++) {
-      const a = evaluateProfileCycle(srcProfile, i / 45);
-      a.rKneeInterior = 180 - a.rKnee;
-      a.lKneeInterior = 180 - a.lKnee;
-      a.rElbowInterior = 180 - a.rElbow;
-      a.hipSeparationDeg = Math.abs(a.rThigh - a.lThigh);
-      a.lAnkleX = Math.sin((i / 45) * Math.PI * 4) * 45 + 320;
-      a.rAnkleX = -Math.sin((i / 45) * Math.PI * 4) * 45 + 320;
-      a.lAnkleY = Math.cos((i / 45) * Math.PI * 4) * 50 + 300;
-      a.rAnkleY = Math.cos((i / 45 + 0.5) * Math.PI * 4) * 50 + 300;
-      a.videoTime = i * (1.5 / 45);
-      a.pushOffAngle = 18.0;
-      a.midHipX = 320;
-      capturedRawFrames.push(a);
-    }
-    setTimeout(finalizeCycleExtraction, 450);
+    // 3.5（D9）：無影片時上傳預先烘焙的合成 landmarks，結果與影片擷取走同一條路
+    const sim = RFA.profiles.SIM_CAPTURE_REQUEST;
+    isCapturingCycle = false;
+    startServerAnalysis(captureSeq, {
+      frameWidth: sim.frameWidth,
+      frameHeight: sim.frameHeight,
+      runDirection: sim.runDirection,
+      isManualDirection: sim.isManualDirection,
+      heightCm: captureStart.heightCm,
+      frames: sim.frames,
+    });
   }
 }
 
@@ -185,28 +178,28 @@ function finalizeCycleExtraction() {
   const btn = document.getElementById("captureCycleBtn");
   if (isVideo && capturedRawFrames.length >= 8) {
     // 影片擷取：上傳 landmarks 給 Server，結果回來才顯示完成
-    btn.className = CAPTURE_BTN_IDLE_CLASS + " opacity-70 cursor-wait";
-    btn.disabled = true;
-    btn.innerHTML =
-      '<span class="w-2 h-2 rounded-full bg-slate-950 animate-ping"></span><span>☁️ 上傳分析中…</span>';
-    requestServerAnalysis(captureSeq);
+    startServerAnalysis(captureSeq, {
+      frameWidth: videoCanvas.width,
+      frameHeight: videoCanvas.height,
+      runDirection: captureStart.runDirection,
+      isManualDirection: captureStart.isManualDirection,
+      heightCm: captureStart.heightCm,
+      frames: capturedLandmarkFrames,
+    });
     return;
   }
 
   showCaptureDone(btn);
-  if (capturedRawFrames.length < 8) return;
+}
 
-  // 無影片的模擬擷取仍在本地分析（D9，3.5 處理）
-  const heightCm =
-    parseFloat(document.getElementById("runnerHeightInput").value) || 172;
-  const { cadence: detectedCadence, summary: newSummary } =
-    analyzeCapturedFrames(capturedRawFrames, {
-      heightCm,
-      cameraMode: selectedCameraMode,
-      canvasW: videoCanvas.width,
-      runDirection,
-    });
-  applyCapturedResult(detectedCadence, newSummary, null);
+// 上傳前先把按鈕切到「上傳分析中」（影片擷取與模擬擷取共用）
+function startServerAnalysis(seq, req) {
+  const btn = document.getElementById("captureCycleBtn");
+  btn.className = CAPTURE_BTN_IDLE_CLASS + " opacity-70 cursor-wait";
+  btn.disabled = true;
+  btn.innerHTML =
+    '<span class="w-2 h-2 rounded-full bg-slate-950 animate-ping"></span><span>☁️ 上傳分析中…</span>';
+  requestServerAnalysis(seq, req);
 }
 
 // 套用擷取結果：依手動設定或自動偵測決定步幅，建立 custom_captured 並切換
@@ -222,7 +215,7 @@ function applyCapturedResult(cadence, summary, cycleKeyframes) {
     if (ck.ok) {
       RUNNER_PROFILES.custom_captured.cycleKeyframes = ck.keyframes;
     } else {
-      console.warn("Server 回傳的 cycleKeyframes 不合法，退回本地運動學：", ck.errors);
+      console.warn("Server 回傳的 cycleKeyframes 不合法，將不顯示骨架：", ck.errors);
     }
   }
 
@@ -239,17 +232,16 @@ function resetCaptureButton() {
 }
 
 // 上傳擷取期間的 landmarks（同源 POST /api/analyze）；不送 profileName（含影片檔名）
-async function requestServerAnalysis(seq) {
+async function requestServerAnalysis(seq, req) {
   isAnalyzingRemote = true;
-  const start = captureStart;
   const body = JSON.stringify({
-    frameWidth: videoCanvas.width,
-    frameHeight: videoCanvas.height,
-    heightCm: start.heightCm,
+    frameWidth: req.frameWidth,
+    frameHeight: req.frameHeight,
+    heightCm: req.heightCm,
     cameraMode: selectedCameraMode,
-    runDirection: start.runDirection,
-    isManualDirection: start.isManualDirection,
-    frames: capturedLandmarkFrames,
+    runDirection: req.runDirection,
+    isManualDirection: req.isManualDirection,
+    frames: req.frames,
   });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
@@ -457,7 +449,7 @@ function importAnalysisJSON(event) {
         // 2. 構建完整防護的 safeSummary，完整保留相機與測量欄位
         const safeSummary = buildSafeSummaryFromJSON(data, cadenceVal);
 
-        RUNNER_PROFILES[dynamicKey] = {
+        RUNNER_PROFILES[dynamicKey] = attachEvalCycle({
           name: displayName,
           cadence: cadenceVal,
           appearance: {
@@ -468,12 +460,9 @@ function importAnalysisJSON(event) {
             soleColor: "#C084FC",
           },
           summary: safeSummary,
-          evalCycle: function (p) {
-            return evaluateProfileAngles(this, p);
-          },
-        };
+        });
 
-        // 2.2：合法的 cycleKeyframes 掛到 Profile；不合法則警告並退回本地運動學
+        // 2.2：合法的 cycleKeyframes 掛到 Profile；不合法則警告，之後不顯示骨架（3.5 起無本地運動學退回）
         if (data.cycleKeyframes !== undefined) {
           const ckResult = RFA.player.normalizeCycleKeyframes(data.cycleKeyframes);
           if (ckResult.ok) {
@@ -483,10 +472,12 @@ function importAnalysisJSON(event) {
             );
           } else {
             console.warn(
-              "cycleKeyframes 不合法，退回本地運動學：",
+              "cycleKeyframes 不合法，將不顯示骨架：",
               ckResult.errors,
             );
           }
+        } else {
+          console.info("此檔沒有 cycleKeyframes，骨架不顯示");
         }
 
         const selectEl = document.getElementById("profileSelect");
@@ -580,7 +571,7 @@ function exportAnalysisJSON() {
     cadence: profile.cadence,
     strideMeters: profile.summary.strideMeters,
     isManualStride,
-    phaseTiming: getActiveRunnerTiming(),
+    phaseTiming: getActiveProfileTiming(),
     summary: profile.summary,
   };
   if (profile.cycleKeyframes) payload.cycleKeyframes = profile.cycleKeyframes;

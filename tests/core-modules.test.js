@@ -163,3 +163,12 @@ describe("3.4 瀏覽器函式不再定義於 lib/core", () => {
     expect(coreFiles).not.toContain("landmark-extract.js");
   });
 });
+
+describe("3.5 evaluateProfileAngles 已移出核心", () => {
+  it("lib/core 不再有 keyframes.js，也沒有退回版本", () => {
+    expect(coreFiles).not.toContain("keyframes.js");
+    for (const f of coreFiles) {
+      expect(readFileSync(new URL(f, CORE_DIR), "utf8"), f).not.toContain("function evaluateProfileAngles");
+    }
+  });
+});

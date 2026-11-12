@@ -150,7 +150,6 @@ describe("3.4 橋接與切換", () => {
     CYCLE_KEYFRAME_MIN_FRAMES: ["lib/player/keyframes.js", "keyframes.js"],
     normalizeCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
     sampleCycleKeyframes: ["lib/player/keyframes.js", "keyframes.js"],
-    evaluateProfileAngles: ["lib/core/keyframes.js", "keyframes.js"],
     extractAnglesFromLandmarks: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
     evaluateCaptureFrame: ["lib/landmarks/landmark-extract.js", "landmark-extract.js"],
     parseManualStrideValue: ["lib/player/stride-input.js", "biomechanics.js"],
@@ -181,6 +180,7 @@ describe("3.4 橋接與切換", () => {
       "evaluateCaptureFrame",
       "normalizeCycleKeyframes",
       "parseManualStrideValue",
+      "evaluateProfileAngles",
     ];
     const files = [...listFiles("public/js/", ".js"), "public/index.html"];
     for (const p of files) {
@@ -201,6 +201,50 @@ describe("3.4 橋接與切換", () => {
     for (const p of listFiles("public/modules/", ".js")) {
       for (const m of markers) expect(read(p), `${p}: ${m}`).not.toContain(m);
     }
+  });
+});
+
+describe("F 3.5 移除的本地解算", () => {
+  const files = () => [...listFiles("public/js/", ".js"), "public/index.html"];
+
+  it("F1 UI 不再呼叫本地解算函式", () => {
+    for (const p of files()) {
+      const src = read(p);
+      for (const n of ["evaluateProfileCycle", "getActiveRunnerTiming", "generatePoseMethodAlignedCycle", "analyzeCapturedFrames"]) {
+        expect(src, `${p}: ${n}`).not.toMatch(new RegExp(`(?<![.\\w])${n}\\s*\\(`));
+      }
+    }
+  });
+
+  it("F2 config.js 不含 profile 靜態資料", () => {
+    const src = read("public/js/config.js");
+    expect(src).not.toContain("touchdownKnee");
+    expect(src).not.toContain("phaseTiming");
+  });
+
+  it("F3 DOMContentLoaded 先 initRunnerProfiles() 再更新遙測", () => {
+    const html = read("public/index.html");
+    const i = html.indexOf('addEventListener("DOMContentLoaded"');
+    const body = html.slice(i);
+    expect(body.indexOf("initRunnerProfiles()")).toBeGreaterThan(-1);
+    expect(body.indexOf("initRunnerProfiles()")).toBeLessThan(body.indexOf("updateTelemetryAndDiagnostics()"));
+  });
+
+  it("F4 getActiveProfileTiming 唯讀，不重算 phaseTiming", () => {
+    const src = read("public/js/state.js");
+    const fn = src.slice(src.indexOf("function getActiveProfileTiming"));
+    expect(fn).not.toContain("computePersonalizedPhaseTiming");
+    expect(read("public/index.html")).not.toMatch(/\.phaseTiming\s*=\s*computePersonalizedPhaseTiming/);
+  });
+});
+
+describe("F5 renderer 軌跡取樣依賴關鍵幀", () => {
+  it("軌跡與相位標記以 hasKeyframes 把關（即時同步時 evalCycle 仍可能回傳 null）", () => {
+    const src = read("public/js/renderer.js");
+    expect(src).toContain("const hasKeyframes = Boolean(activeProfile.cycleKeyframes)");
+    expect(src).toContain("hasKeyframes && i <= steps");
+    expect(src).toContain("hasKeyframes && i < steps");
+    expect(src).toContain("(hasKeyframes ? phaseMarkers : [])");
   });
 });
 
