@@ -26,7 +26,7 @@
 | `cadence` | number | `profile.cadence` | 是（沒有時用 180） |
 | `strideMeters` | number | `profile.summary.strideMeters` | 是（優先於 `summary.strideMeters`） |
 | `isManualStride` | boolean | 全域 `isManualStride` | 是 |
-| `phaseTiming` | object | `getActiveRunnerTiming()` | 是（優先於 `summary.phaseTiming`） |
+| `phaseTiming` | object | `profile.summary.phaseTiming`（3.5 起唯讀） | 是（優先於 `summary.phaseTiming`） |
 | `summary` | object | `profile.summary` | 是（**唯一必填**，缺少即 alert） |
 
 ### 1.2 `summary` 欄位與匯入預設值
@@ -82,7 +82,7 @@
   "phaseTiming": { },
   "summary": { },                  // 必填
   "metrics": { },                  // 預留，Client 忽略
-  "cycleKeyframes": { }            // 選填；2.2 起 Client 讀取，缺少或不合法時退回本地運動學
+  "cycleKeyframes": { }            // 選填；2.2 起 Client 讀取，缺少或不合法時不顯示骨架並提示（3.5 起無本地運動學退回）
 }
 ```
 
@@ -172,7 +172,7 @@ Client 匯入時忽略，仍以 `summary` + `cadence` 即時推算。2.3 起 Ser
 1. `frames` 依 `p` 嚴格遞增，首幀 `p = 0`、末幀 `p = 1` 且內容**直接複製首幀**（不可另外解算；行走模型 p=1 解算出的 `rIsStance` 會與 p=0 不同）；至少 21 幀，**建議 101 幀等距（`p = i / 100`）**。跑步模型支撐邊界 0.22／0.72 不在 1/20、1/40 格點上，41 幀會讓 `*IsStance` 錯位、髖部高度跳動。
 2. 任意 `p` 先取 `p mod 1`，找相鄰兩幀 a、b，`t = (p − a.p) / (b.p − a.p)`：數值欄位線性內插；`*IsStance` 取 a 的值。
 3. 產生端義務：每條腿 `*IsStance` 的切換點必須剛好落在關鍵幀上；可加入觸地／離地瞬間的非等距關鍵幀。
-4. 缺少或不合法時，Client 退回以 `summary` + `cadence` 即時解算；不合法時 `console.warn`，不 alert。
+4. 缺少或不合法時，Client 不顯示骨架並提示（3.5 起，D2）；不合法時 `console.warn`，不 alert。
 5. 帶關鍵幀的 Profile 以關鍵幀為準（視為 Server 的權威結果），Client 不因改步幅、身高而重算骨架。匯出時只在該 Profile 本來就有關鍵幀時才原樣帶出。
 
 ---

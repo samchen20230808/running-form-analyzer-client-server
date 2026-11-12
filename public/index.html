@@ -1551,8 +1551,7 @@
           RUNNER_PROFILES[activeProfileKey] || RUNNER_PROFILES.hsu_pose_method;
         const s = profile.summary;
         const cadence = profile.cadence || 180;
-        s.phaseTiming = computePersonalizedPhaseTiming(s, cadence);
-        const timing = s.phaseTiming;
+        const timing = getActiveProfileTiming();
         const gct = computeGctMetrics(s, cadence);
 
         const heightCm =
@@ -2060,21 +2059,28 @@
           const profile =
             RUNNER_PROFILES[activeProfileKey] ||
             RUNNER_PROFILES.hsu_pose_method;
-          const a = evaluateProfileCycle(profile, p);
-          const pose = RFA.player.solveKinematics(a, W * 0.48, 360, 0.95);
+          const a = profile.evalCycle(p);
+          if (a) {
+            const pose = RFA.player.solveKinematics(a, W * 0.48, 360, 0.95);
 
-          drawRunnerSilhouette(videoCtx, pose, profile.appearance);
-          drawSkeletonFigure(videoCtx, pose, {
-            isGhost: false,
-            mainColor: "#10B981",
-            farColor: "#64748B",
-          });
-          document.getElementById("liveVideoTrunk").textContent =
-            `${a.trunk.toFixed(1)}°`;
-          document.getElementById("liveVideoKnee").textContent =
-            `${Math.round(180 - a.rKnee)}°`;
-          document.getElementById("liveVideoElbow").textContent =
-            `${Math.round(180 - a.rElbow)}°`;
+            drawRunnerSilhouette(videoCtx, pose, profile.appearance);
+            drawSkeletonFigure(videoCtx, pose, {
+              isGhost: false,
+              mainColor: "#10B981",
+              farColor: "#64748B",
+            });
+            document.getElementById("liveVideoTrunk").textContent =
+              `${a.trunk.toFixed(1)}°`;
+            document.getElementById("liveVideoKnee").textContent =
+              `${Math.round(180 - a.rKnee)}°`;
+            document.getElementById("liveVideoElbow").textContent =
+              `${Math.round(180 - a.rElbow)}°`;
+          } else {
+            drawNoKeyframesNotice(videoCtx, W, 200);
+            for (const id of ["liveVideoTrunk", "liveVideoKnee", "liveVideoElbow"]) {
+              document.getElementById(id).textContent = "—";
+            }
+          }
 
           requestAnimationFrame(renderSimVideo);
         }
@@ -2082,6 +2088,7 @@
       }
 
       window.addEventListener("DOMContentLoaded", () => {
+        initRunnerProfiles();
         applyAppConfig();
         updateStrideModeUI();
         updateTelemetryAndDiagnostics();

@@ -40,83 +40,19 @@ function applyAppConfig() {
 }
 
 
-const RUNNER_PROFILES = {
-  hsu_pose_method: {
-    name: "★ 徐國峰教練 (關鍵跑姿黃金標準)",
-    cadence: 184,
-    appearance: {
-      capColor: "#F8FAFC",
-      shirtColor: "#2563EB",
-      shortsColor: "#0F172A",
-      shoeColor: "#1E293B",
-      soleColor: "#334155",
-    },
-    summary: {
-      trunkAngle: 8.2,
-      comOffsetCm: 3.2,
-      touchdownKnee: 155,
-      minSwingKnee: 76,
-      avgElbow: 86,
-      pushOffExtensionDeg: 14.0,
-      footStrikeAngle: -1,
-      hipRomDeg: 38,
-      strideMeters: 1.12,
-      phaseTiming: { touchPct: 0, posePct: 15, fallPct: 30, pullPct: 75 },
-    },
-    evalCycle: function (p) {
-      return evaluateProfileAngles(this, p);
-    },
-  },
-  night_track_runner: {
-    name: "歷史紀錄：夜間跑道舊影片 (跨步與晚拉腿實測對照)",
-    cadence: 166,
-    appearance: {
-      capColor: null,
-      shirtColor: "#64748B",
-      shortsColor: "#0F172A",
-      shoeColor: "#F8FAFC",
-      soleColor: "#38BDF8",
-    },
-    summary: {
-      trunkAngle: 3.5,
-      comOffsetCm: 13.2,
-      touchdownKnee: 162,
-      minSwingKnee: 108,
-      avgElbow: 64,
-      pushOffExtensionDeg: 28.5,
-      footStrikeAngle: 14,
-      hipRomDeg: 46,
-      strideMeters: 0.96,
-      phaseTiming: { touchPct: 0, posePct: 21, fallPct: 38, pullPct: 82 },
-    },
-    evalCycle: function (p) {
-      return evaluateProfileAngles(this, p);
-    },
-  },
-  custom_captured: {
-    name: "🎥 實測影片分析檔 (您上傳的影片)",
-    cadence: 180,
-    appearance: {
-      capColor: null,
-      shirtColor: "#06B6D4",
-      shortsColor: "#0F172A",
-      shoeColor: "#F8FAFC",
-      soleColor: "#10B981",
-    },
-    summary: {
-      trunkAngle: 7.4,
-      comOffsetCm: 2.8,
-      touchdownKnee: 155,
-      minSwingKnee: 74,
-      avgElbow: 84,
-      pushOffExtensionDeg: 15.0,
-      footStrikeAngle: 2,
-      hipRomDeg: 38,
-      strideMeters: 0.95,
-      phaseTiming: { touchPct: 0, posePct: 15, fallPct: 30, pullPct: 75 },
-    },
-    evalCycle: function (p) {
-      return evaluateProfileAngles(this, p);
-    },
-  },
-};
+// 3.5：內建 profile 的靜態資料與烘焙關鍵幀在 lib/profiles（經 modules/bridge.js 的 RFA.profiles）
+const RUNNER_PROFILES = {};
+
+function attachEvalCycle(profile) {
+  profile.evalCycle = function (p) {
+    return RFA.player.evaluateProfileAngles(this, p);
+  };
+  return profile;
+}
+
+function initRunnerProfiles() {
+  const built = RFA.profiles.createBuiltinProfiles();
+  for (const key of RFA.profiles.BUILTIN_PROFILE_KEYS) {
+    RUNNER_PROFILES[key] = attachEvalCycle(built[key]);
+  }
+}

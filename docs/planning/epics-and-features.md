@@ -54,7 +54,7 @@
 | 3.2     | 搬入現有 Client UI           | done | 舊 Client 原樣放入 `public/legacy/`，`/` 以 307 導向 `/legacy/index.html`；舊核心暫存 `public/legacy/temp-core/`（`TEMP-CORE` 檔頭），`VERCEL` 環境 build 會失敗，3.3 移除前不得部署；規格見 [`3-2`](../../context/features/3-2-client-ui-migration.md) |
 | 3.3     | Client 呼叫 `/api/analyze`   | done | 影片擷取完成時上傳 landmarks、套用 Server 結果；錯誤提示、過時回應丟棄；刪除 `customCycleFrames`；`lib/` 不動、temp-core 與部署防線保留；規格見 [`3-3`](../../context/features/3-3-client-calls-analyze.md) |
 | 3.4     | 瀏覽器共用模組與橋接         | done | `lib/player/`、`lib/landmarks/` 為單一來源（`lib/core/` 轉匯出）；`npm run sync:legacy` 複製到 `public/legacy/modules/`，`window.RFA` 橋接，UI 6 組呼叫點已切換；`evaluateProfileAngles` 留 3.5；規格見 [`3-4`](../../context/features/3-4-browser-shared-modules-bridge.md) |
-| 3.5     | 內建 profile 烘焙與模擬擷取  | planned | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 須先做原型確認可行 |
+| 3.5     | 內建 profile 烘焙與模擬擷取  | done | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 已通過原型關卡（S1–S7）；UI 缺關鍵幀時不顯示骨架並提示；規格見 [`3-5`](../../context/features/3-5-profile-baking-sim-capture.md) |
 | 3.6     | 衍生值 API                   | planned | 契約 1.1.0（`metrics.gct` 完整物件）＋ `POST /api/derive`；只動 Server（D5、D6） |
 | 3.7     | Client 改讀衍生值並移除 temp-core | planned | UI 改讀 `metrics`／derive、移除 `public/legacy/temp-core/` 與 `VERCEL` 部署防線、bundle 檢查、改寫過渡期文件；完成後才可進 4.1 |
 | 3.8     | 報告匯出                     | planned | 原 3.4：舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心 |
@@ -82,9 +82,9 @@
 - ⏳ 行走模型 HUD 左右腳標示錯誤（舊 `fix-walking-hud-foot-label`）：Client 已搬入（3.2），可另開 `fix-` 處理（建議 3.7 之後，位置見 3.2 規格第 10 節）。
 - ⏳ 門檻 55／8 與 `isWalking`／`isBiomechanicalRunner` 多處重複：1.1 不合併（只照原樣搬，位置見 `context/features/1-1-core-esm-modules.md` 第 5 節）；55／8 已於 1.2 成為 `LIMITS.maxAcceptedFrames`／`minAcceptedFrames`（Server 端單一來源；Client 的 `>= 55`／`< 8` 已於 3.2 搬入後暫時重複，3.7 移除本地解算時消失）。判斷式合併 1.2 不處理，另開 `refactor-` Feature（建議 3.2 之後），開工前先補「步頻 < 135」與「avgElbow／hipRomDeg 為 null」的對照值（現有 landmarks 樣本步頻皆 ≥ 135，`isWalking` 的 true 分支只靠逐字 diff）。
 - ✅ 「觸地 361ms／總分 96」基準來源已確認：由核心 `computeGctMetrics`／`calculateOverallRunningScore` 對 walk summary 計算得出，比對方式見 1.1 規格；建議以 `REQUIRE_BASELINE=1 npm test` 執行，缺樣本直接失敗。
-- ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，3.4 已落實 `lib/player/`、`lib/landmarks/`，`evaluateProfileAngles` 拆分於 3.5；其餘由 3.5–3.7 落實）舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。建議預設：拆出瀏覽器可用的 `lib/player/`（`solveKinematics`、`sampleCycleKeyframes`、`normalizeCycleKeyframes`，單一來源），其餘由 Server 回傳。
-- ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，由 3.3 落實）`RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；建議預設：移除本地運動學退回路徑；profile 靜態資料放 `lib/profiles/` 並附烘焙關鍵幀；`evaluateProfileCycle` 刪除、`getActiveRunnerTiming` 改唯讀。
+- ⏳（3.1 建議預設；見 [決策文件](../client-server-boundary.md)，3.4 已落實 `lib/player/`、`lib/landmarks/`，3.5 已落實 `evaluateProfileAngles` 拆分與 `lib/profiles/`；其餘由 3.6–3.7 落實）舊 Client 會用到、但現在位於 server-only 核心的函式：`solveKinematics`（renderer 畫骨架）、`normalizeCycleKeyframes`（analyzer 匯入檢查）、`sampleCycleKeyframes`／`evaluateProfileAngles`（播放端）。建議預設：拆出瀏覽器可用的 `lib/player/`（`solveKinematics`、`sampleCycleKeyframes`、`normalizeCycleKeyframes`，單一來源），其餘由 Server 回傳。
+- ✅（3.5 已落實；見 [決策文件](../client-server-boundary.md)）`RUNNER_PROFILES`／`evaluateProfileCycle`／`getActiveRunnerTiming` 屬 Client 狀態，1.1 不搬；建議預設：移除本地運動學退回路徑；profile 靜態資料放 `lib/profiles/` 並附烘焙關鍵幀；`evaluateProfileCycle` 刪除、`getActiveRunnerTiming` 改唯讀。
 - ⏳ 限流改外部儲存（Upstash Redis）：把服務開放給他人之前再評估。
 - ⏳ 骨架時序平滑（One Euro）原型：舊專案 branch `feature-skeleton-smoothing-proto`，擱置。
-- ⏳ 既有缺陷（見決策文件第 9 章）：`getActiveRunnerTiming` 的 `pullPct` 漂移、`renderSimVideo` 繞過關鍵幀、`customCycleFrames` 死碼；預計隨 3.3（D4、D9）消除。
+- ✅（`pullPct` 漂移與 `renderSimVideo` 繞過關鍵幀已於 3.5 修正；`customCycleFrames` 已於 3.3 刪除）既有缺陷（見決策文件第 9 章）：`getActiveRunnerTiming` 的 `pullPct` 漂移、`renderSimVideo` 繞過關鍵幀、`customCycleFrames` 死碼；預計隨 3.3（D4、D9）消除。
 - ⏳ UI 內嵌評分門檻（`index.html:1591` 起）3.3 暫留，建議與判斷式合併的 `refactor-` 一併另開 Feature（D10）。

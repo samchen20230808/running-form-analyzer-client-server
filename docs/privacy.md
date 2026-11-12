@@ -12,9 +12,9 @@
 
 ## 2. 目前狀態
 
-3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 只剩 temp-core）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取、JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。
+3.2 起，`/` 導向 `/index.html`，是原樣搬入的舊 Client（`next.config.mjs` `redirects()`；3.9 起檔案在 `public/` 根目錄，`public/legacy/` 只剩 temp-core）。它**會在瀏覽器擷取影像（MediaPipe）、每次影片擷取完成時呼叫一次 `/api/analyze`（3.3 起）、會載入第三方資源（第 8 節）、不使用瀏覽器儲存**（第 9 節）。無影片的模擬擷取（3.5 起）也會呼叫一次 `/api/analyze`，送出的是預先烘焙的合成 landmarks（非使用者資料）與當下的身高、機位，不送檔名；JSON 匯入、手動調整步幅／身高／步頻與遙測**仍在瀏覽器本地**計算，不呼叫 API。
 
-**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。3.4 起，`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）以 `public/modules/` 的同步副本在瀏覽器執行，這是永久範圍，不是過渡期，且沒有新的資料流。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
+**過渡期（3.2 完成至 3.7 完成）**：舊 Client 連同舊核心的暫時副本（`public/legacy/temp-core/`）一起在瀏覽器執行，遙測、衍生值與手動重算在本機完成（即時角度與擷取閘門仍在本地，影片擷取的最終分析由 Server 重跑）；這個版本**不可部署**（`next.config.mjs` 在 `VERCEL` 環境會讓 build 失敗），因為 `public/` 下的檔案部署後就是公開 URL。防線依賴 Vercel build 時存在 `VERCEL` 環境變數（4.1 前須實測確認）；日後若 `vercel env pull` 把 `VERCEL` 寫進 `.env.local`，本地 `dev`／`build` 也會被擋，屆時自行移除該行。3.4 起，`lib/player/`、`lib/landmarks/`（角度擷取、擷取閘門、關鍵幀取樣、正向運動學、步幅輸入解析）以 `public/modules/` 的同步副本在瀏覽器執行，這是永久範圍，不是過渡期，且沒有新的資料流。3.5 起 `lib/profiles/`（內建 profile 靜態資料、烘焙關鍵幀、合成 landmarks）也以 `public/modules/` 公開，只有輸出、沒有公式。「核心只在 Server」要到 3.7 移除暫時核心後才成立。
 
 3.3 起，影片擷取完成時會上傳擷取期間的**每一幀** landmarks（最多 1500 幀，最多約 3.5 MB），Client **不送 `profileName`**，所以 API 回應不含影片檔名；但匯出的 JSON 的 `profileName` 由 Client 本地寫入，仍含影片檔名（與 3.2 相同）。3.7 完成時須再核對本文件。
 
@@ -32,6 +32,7 @@
 
 - `heightCm`、`cameraMode` 未提供時，帶回的是預設值（172、`"auto"`）。
 - landmarks 是 33 個關節點的正規化座標與可見度，**不是影像**，但仍是可描述身體動作的資料。
+- 無影片的模擬擷取（3.5 起）送出的 `frames[]` 是預先烘焙的合成 landmarks（`lib/profiles/sim-capture.js`），不是使用者資料；`heightCm`、`cameraMode` 取當下 UI 值，不送 `profileName`。
 - `profileName` 可能含影片檔名，**請勿放入個人資訊**：它會原樣出現在回應與匯出的 JSON。
 
 ## 4. Server 如何處理

@@ -203,7 +203,7 @@ function switchProfile(key) {
   }
   updateTelemetryAndDiagnostics();
   if (!simPlaying) {
-    const timing = getActiveRunnerTiming();
+    const timing = getActiveProfileTiming();
     jumpToCyclePct(timing.posePct);
   } else {
     drawSimulator();
@@ -282,7 +282,7 @@ function manualScrubCycle(val) {
 }
 
 function jumpToRunnerPhase(phaseType) {
-  const timing = getActiveRunnerTiming();
+  const timing = getActiveProfileTiming();
   const map = {
     touch: timing.touchPct,
     pose: timing.posePct,
@@ -305,7 +305,7 @@ function updateSimPhaseHUD() {
   const pct = Math.round(((cyclePct % 100) + 100) % 100);
   document.getElementById("simPctText").textContent = `${pct}%`;
 
-  const timing = getActiveRunnerTiming();
+  const timing = getActiveProfileTiming();
   const bPoseStart = Math.max(5, timing.posePct - 7);
   const bFallStart = timing.posePct + 6;
   const bPullTransition = 64;

@@ -2,4 +2,5 @@
 // 手寫，不由同步腳本產生。React 化後刪除。
 import * as player from "./player/index.js";
 import * as landmarks from "./landmarks/index.js";
-window.RFA = Object.freeze({ player, landmarks });
+import * as profiles from "./profiles/index.js";
+window.RFA = Object.freeze({ player, landmarks, profiles });

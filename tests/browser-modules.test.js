@@ -4,11 +4,12 @@ import { describe, expect, it } from "vitest";
 import * as core from "../lib/core/index.js";
 import * as player from "../lib/player/index.js";
 import * as landmarks from "../lib/landmarks/index.js";
+import * as profiles from "../lib/profiles/index.js";
 
 const ROOT = new URL("../", import.meta.url);
 const read = (p) => readFileSync(new URL(p, ROOT), "utf8");
 const norm = (s) => s.replace(/\r\n/g, "\n");
-const MANAGED = ["player", "landmarks"];
+const MANAGED = ["player", "landmarks", "profiles"];
 
 function listFiles(dir) {
   const out = [];
@@ -78,12 +79,32 @@ describe("A3 同一性：Server 與瀏覽器用同一份", () => {
     expect(Object.keys(player).sort()).toEqual([
       "CYCLE_KEYFRAME_MIN_FRAMES",
       "CYCLE_KEYFRAME_NUMERIC_FIELDS",
+      "evaluateProfileAngles",
       "normalizeCycleKeyframes",
       "parseManualStrideValue",
       "sampleCycleKeyframes",
       "solveKinematics",
     ]);
     expect(Object.keys(landmarks).sort()).toEqual(["evaluateCaptureFrame", "extractAnglesFromLandmarks"]);
+    expect(Object.keys(profiles).sort()).toEqual([
+      "BAKED_CYCLE_KEYFRAMES",
+      "BUILTIN_PROFILES",
+      "BUILTIN_PROFILE_KEYS",
+      "REFERENCE_PROFILE_KEY",
+      "SIM_CAPTURE_META",
+      "SIM_CAPTURE_REQUEST",
+      "SIM_CAPTURE_SOURCE_KEY",
+      "createBuiltinProfiles",
+    ]);
+  });
+
+  it("evaluateProfileAngles 只看關鍵幀，沒有就回傳 null（B3）", () => {
+    expect(player.evaluateProfileAngles({}, 0.3)).toBeNull();
+    expect(player.evaluateProfileAngles(null, 0.3)).toBeNull();
+    const prof = profiles.createBuiltinProfiles().hsu_pose_method;
+    expect(player.evaluateProfileAngles(prof, 0.3)).toStrictEqual(
+      player.sampleCycleKeyframes(prof.cycleKeyframes, 0.3),
+    );
   });
 });
 
@@ -147,13 +168,13 @@ describe("B1 public/modules 與 lib 同步", () => {
     }
   });
 
-  it("modules/ 只有受管理子目錄與 bridge.js；bridge.js 只 import 兩個 index.js", () => {
+  it("modules/ 只有受管理子目錄與 bridge.js；bridge.js 只 import 三個 index.js", () => {
     expect(readdirSync(new URL("public/modules/", ROOT)).sort()).toEqual(
       ["bridge.js", ...MANAGED].sort(),
     );
     const imports = [...read("public/modules/bridge.js").matchAll(/from\s+["']([^"']+)["']/g)].map(
       (m) => m[1],
     );
-    expect(imports).toEqual(["./player/index.js", "./landmarks/index.js"]);
+    expect(imports).toEqual(["./player/index.js", "./landmarks/index.js", "./profiles/index.js"]);
   });
 });
