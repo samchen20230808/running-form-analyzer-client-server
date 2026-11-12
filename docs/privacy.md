@@ -84,7 +84,7 @@
 
 ## 9. Cookie 與瀏覽器儲存
 
-舊 Client 不使用 cookie、localStorage、sessionStorage、IndexedDB，也沒有追蹤或分析工具（`tests/legacy-client.test.js` 檢查 `public/` 不含這些字樣；只檢查本站檔案，第三方 CDN script 的行為不在此保證）。影片以 `blob:` URL 在記憶體播放（`URL.createObjectURL`）、JSON 匯入用 `FileReader` 在本機讀取、匯出為本機下載，皆不離開瀏覽器。
+舊 Client 不使用 cookie、localStorage、sessionStorage、IndexedDB，也沒有追蹤或分析工具（`tests/legacy-client.test.js` 檢查 `public/` 不含這些字樣；只檢查本站檔案，第三方 CDN script 的行為不在此保證）。影片以 `blob:` URL 在記憶體播放（`URL.createObjectURL`）、JSON 匯入用 `FileReader` 在本機讀取、匯出為本機下載，皆不離開瀏覽器。3.8 起的「匯出報告」只在本機組出報告頁並用瀏覽器列印／另存 PDF，**不發任何網路請求**；報告標題預設為影片檔名（可在報告內改成暱稱），檔名只出現在本機畫面與 PDF 中，不上傳。
 
 ## 10. 日後可能改變的情況
 

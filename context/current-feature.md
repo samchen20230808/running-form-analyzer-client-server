@@ -1,16 +1,24 @@
-# Current Feature
+# Current Feature: 3.8 報告匯出
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 新增 `public/js/report.js`（`openReport`／`closeReport`），啟用「📄 匯出報告」按鈕，`window.print()` 另存 PDF
+- GCT 讀 `getActiveDerived().metrics.gct`、相位讀 `getActiveProfileTiming()`；匯出前 `isDerivedCurrent`＋`deriveStatus` 把關
+- 不發請求、不寫快取、不引入核心；Server 零變更、不新增依賴
+- 沿用 `main.css` 列印樣式；新增 Vitest R1–R5；Playwright P1–P9
+- 同步路線圖、boundary、privacy、README
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+Spec: `context/features/3-8-report-export.md`（Opus 撰寫）。未決事項 9.1（預設印出影片檔名）暫採建議預設，待使用者確認。
+
+Baseline（動手前）：`npm run build` 成功；`npm test` 305 通過。
+
+驗證：lint、build 通過；`REQUIRE_BASELINE=1 npm test` 310 通過（新增 R1–R5）。Playwright（獨立 chromium 腳本，因 MCP 瀏覽器被佔用）對 `npm run dev`（3100）：console 0 error、無 4xx；P1 開報告 0 新請求、4 張 data:image/png、數值與主畫面一致；P8 圖層狀態還原；P6 title 改名與還原；P2 列印媒體主畫面 none／工具列 none／overlay static／白底；P3 PDF 與列印截圖存 scratchpad，目視排版正常；P4 walk 樣本 1 張骨架、無評分區塊；P7 derive 延遲時 alert 並拒絕，恢復後可開；`git diff --stat -- lib app package.json` 為空。Opus review：發現建報告失敗會留下無法關閉的空浮層，已改為先組內容再掛浮層；刪未使用變數、補強 R2、修文件過期敘述。未驗：P5（僅驗匯入 walk 樣本，未驗 client-*.json、模擬擷取、影片擷取後匯出）、P9 完整互動（切 Profile、播放、拖入影片）、P3 實體列印對話框、derive 429 情境、建報告失敗路徑僅靜態推論。
 
 ## History
 

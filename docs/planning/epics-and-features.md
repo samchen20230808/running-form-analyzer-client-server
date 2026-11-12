@@ -57,7 +57,7 @@
 | 3.5     | 內建 profile 烘焙與模擬擷取  | done | `lib/profiles/` 烘焙關鍵幀、合成 landmarks 模擬擷取、移除本地運動學退回路徑、`getActiveRunnerTiming` 唯讀（D2–D4、D9）；合成 landmarks 已通過原型關卡（S1–S7）；UI 缺關鍵幀時不顯示骨架並提示；規格見 [`3-5`](../../context/features/3-5-profile-baking-sim-capture.md) |
 | 3.6     | 衍生值 API                   | done | 契約 1.1.0（`metrics.gct` 完整物件，`buildMetrics` 共用）＋ `POST /api/derive`（16 KB、未知欄位 400、`includeKeyframes` 選填、與 analyze 共用限流）；只動 Server，Client 與 temp-core 不動；規格見 [`3-6`](../../context/features/3-6-derive-api.md) |
 | 3.7     | Client 改讀衍生值並移除 temp-core | done | UI 9 處核心呼叫改讀 `/api/derive`（`lib/client/`＋`public/js/derive.js`：debounce 400 ms、序號丟棄過時回應、逐 profile 記憶）；匯入由 derive 正規化 `phaseTiming` 並補骨架，壞檔拒絕；`config.js` 升 1.1.0 且匯出帶 `metrics`；已移除 `public/legacy/temp-core/` 與 `VERCEL` 防線；Server 零變更；規格見 [`3-7`](../../context/features/3-7-client-derive-remove-temp-core.md)。可進 4.1 |
-| 3.8     | 報告匯出                     | planned | 原 3.4：舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入；只讀衍生結果，不呼叫核心 |
+| 3.8     | 報告匯出                     | done | 舊專案 Feature 3.1（瀏覽器列印另存 PDF）搬入 `public/js/report.js`；GCT 讀 derive 快取、相位讀 `getActiveProfileTiming()`，匯出前 `isDerivedCurrent` 把關；Server 零變更、報告不發請求；規格見 [`3-8`](../../context/features/3-8-report-export.md) |
 | 3.9     | 頁面改為根路徑 `/index.html` | done | 搬到 `public/` 根目錄（temp-core 留原處，`/` 307 → `/index.html`，舊路徑 404），見 `context/features/3-9-root-index-html.md`。原需求：`npm run dev` 後直接以 `http://localhost:3000/index.html` 開啟（現為 `/legacy/index.html`，`/` 307 導向）；規格階段決定作法（建議先評估「整包搬到 `public/` 根目錄並移除 `/`→legacy 轉址」或「只加 `/index.html` 轉址」），連動 `tests/legacy-client.test.js`、`scripts/sync-legacy-modules.mjs` 目的地、文件；建議排在 3.5 之前，避免後續 Feature 沿用舊路徑 |
 
 ## Epic 4 — 部署（單一 Vercel 專案）
