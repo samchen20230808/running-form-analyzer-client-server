@@ -16,6 +16,15 @@
     ["navJsonLabel", "mSlotUpload"],
     ["exportJsonBtn", "analysisActions"],
     ["exportReportBtn", "analysisActions"],
+    // 5.4：核心一／核心二的設定項收進 ⚙ 面板
+    ["nightBoostBtn", "coreSettingsOne"],
+    ["dirGroup", "coreSettingsOne"],
+    ["cameraGroup", "coreSettingsOne"],
+    ["liveSyncLabel", "coreSettingsOne"],
+    ["toggleGhostBtn", "coreSettingsTwo"],
+    ["toggleTrailBtn", "coreSettingsTwo"],
+    ["simSpeedGroup", "coreSettingsTwo"],
+    ["simLegend", "coreSettingsTwo"],
   ];
   const homes = new Map(); // 節點 id → 原位佔位註解
   let active = false;
@@ -51,8 +60,39 @@
     }
   }
 
+  // 5.4：主題區高度 = 視窗高 − Logo − 常駐區 − 內距，讓核心一／二一屏放得下
+  // JS 只算「被佔用的高度」--chrome-h；CSS 以 100svh 扣掉它（svh 不隨網址列收合而變動，避免整頁跳動）
+  function fitCore() {
+    if (!active) return;
+    const used = $("appHeader").offsetHeight + $("mobileBar").offsetHeight + 16;
+    const sec = $("coreSection");
+    sec.style.setProperty("--chrome-h", `${used}px`);
+    sec.setAttribute("data-fit", "1");
+  }
+
+  let settingsTrigger = null;
+
+  function closeSettings() {
+    const wasOpen = !$("coreSettings").classList.contains("hidden");
+    $("coreSettings").classList.add("hidden");
+    $("coreOneGear").setAttribute("aria-expanded", "false");
+    $("coreTwoGear").setAttribute("aria-expanded", "false");
+    if (wasOpen && settingsTrigger && settingsTrigger.offsetParent) settingsTrigger.focus();
+    settingsTrigger = null;
+  }
+
+  function openSettings(e) {
+    settingsTrigger = e && e.currentTarget ? e.currentTarget : null;
+    if (settingsTrigger) settingsTrigger.setAttribute("aria-expanded", "true");
+    const box = $("coreSettings");
+    box.setAttribute("data-tab", currentTab === "two" ? "two" : "one");
+    box.classList.remove("hidden");
+    $("coreSettingsClose").focus();
+  }
+
   function showCore(which) {
     currentTab = which;
+    closeSettings();
     $("coreSection").setAttribute("data-mobile-tab", which);
     setPressed(which);
     closePopover();
@@ -119,6 +159,11 @@
     });
   }
 
+  function onResize() {
+    fitAnchorMargin();
+    fitCore();
+  }
+
   function enter() {
     if (active) return;
     active = true;
@@ -138,8 +183,11 @@
       badgeObserver.observe(badge, { childList: true, characterData: true, subtree: true, attributes: true });
     }
     fitAnchorMargin();
+    fitCore();
+    $("coreOneGear").classList.remove("hidden");
+    $("coreTwoGear").classList.remove("hidden");
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", fitAnchorMargin);
+    window.addEventListener("resize", onResize);
   }
 
   function leave() {
@@ -147,7 +195,13 @@
     active = false;
     closePopover();
     window.removeEventListener("scroll", onScroll);
-    window.removeEventListener("resize", fitAnchorMargin);
+    window.removeEventListener("resize", onResize);
+    closeSettings();
+    $("coreOneGear").classList.add("hidden");
+    $("coreTwoGear").classList.add("hidden");
+    const sec = $("coreSection");
+    sec.style.removeProperty("--chrome-h");
+    sec.removeAttribute("data-fit");
     $("analysisActions").style.scrollMarginTop = "";
     if (badgeObserver) {
       badgeObserver.disconnect();
@@ -172,6 +226,10 @@
   $("tabCoreTwo").addEventListener("click", () => showCore("two"));
   $("tabAnalysis").addEventListener("click", showAnalysis);
   $("strideChip").addEventListener("click", togglePopover);
+  $("coreOneGear").addEventListener("click", openSettings);
+  $("coreTwoGear").addEventListener("click", openSettings);
+  $("coreSettingsClose").addEventListener("click", closeSettings);
+  $("coreSettingsBackdrop").addEventListener("click", closeSettings);
   $("strideResetBtn").addEventListener("click", () => {
     resetStrideToAuto();
     closePopover();
@@ -191,7 +249,10 @@
     closePopover();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closePopover();
+    if (e.key === "Escape") {
+      closePopover();
+      closeSettings();
+    }
   });
   if (mq.addEventListener) mq.addEventListener("change", sync);
   else mq.addListener(sync); // Safari < 14
