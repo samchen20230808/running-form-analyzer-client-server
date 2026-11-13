@@ -59,7 +59,7 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="styles/main.css?v=5.1" />
+    <link rel="stylesheet" href="styles/main.css?v=5.3" />
   </head>
   <body
     class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white"
@@ -82,7 +82,7 @@
             class="w-10 h-10 rounded-xl shadow-lg shadow-cyan-500/20 shrink-0"
           />
           <div>
-            <div class="flex items-center gap-2">
+            <div id="navTitleRow" class="flex items-center gap-2">
               <h1
                 id="navSystemTitle"
                 class="text-base sm:text-lg font-bold tracking-tight text-white"
@@ -145,9 +145,10 @@
           </div>
 
           <label
+            id="navUploadLabel"
             class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 cursor-pointer transition flex items-center gap-1.5"
           >
-            <span>📂 1. 上傳影片</span>
+            <span>📂<span class="m-short hidden"> 影片</span><span class="m-long"> 1. 上傳影片</span></span>
             <input
               type="file"
               id="navVideoUploadInput"
@@ -158,9 +159,10 @@
           </label>
 
           <label
+            id="navJsonLabel"
             class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer transition flex items-center gap-1.5"
           >
-            <span>📂 2. 載入JSON</span>
+            <span>📂<span class="m-short hidden"> JSON</span><span class="m-long"> 2. 載入JSON</span></span>
             <input
               type="file"
               id="jsonImportInput"
@@ -197,6 +199,7 @@
           </div>
 
           <button
+            id="exportJsonBtn"
             onclick="exportAnalysisJSON()"
             class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
           >
@@ -204,6 +207,7 @@
           </button>
 
           <button
+            id="exportReportBtn"
             onclick="openReport()"
             class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500 transition"
           >
@@ -212,6 +216,32 @@
         </div>
       </div>
     </header>
+
+    <!-- 5.3 手機版常駐操作區：節點由 js/mobile-shell.js 在手機寬度時搬入，桌面隱藏 -->
+    <div id="mobileBar" class="hidden">
+      <div id="mobileRow1">
+        <div class="m-cell"><span class="m-lbl">身高 cm</span><span id="mSlotHeight"></span></div>
+        <div class="m-cell">
+          <span class="m-lbl">步幅 m</span><span id="mSlotStride"></span>
+          <button id="strideChip" type="button" aria-expanded="false" aria-controls="stridePopover">AI</button>
+        </div>
+        <div class="m-cell"><span class="m-lbl">步頻 spm</span><span id="mSlotCadence"></span></div>
+        <div class="m-cell"><span class="m-lbl">配速 /km</span><span id="mSlotPace"></span></div>
+      </div>
+      <div id="mobileRow2">
+        <span id="mSlotProfile"></span>
+        <span id="mSlotUpload"></span>
+      </div>
+      <nav id="mobileTabs" aria-label="主題切換">
+        <button id="tabCoreOne" type="button" aria-pressed="true">核心一</button>
+        <button id="tabCoreTwo" type="button" aria-pressed="false">核心二</button>
+        <button id="tabAnalysis" type="button" aria-pressed="false">分析</button>
+      </nav>
+      <div id="stridePopover" class="hidden" role="group" aria-label="步幅來源">
+        <p id="stridePopoverText"></p>
+        <button id="strideResetBtn" type="button">改回 AI 自動</button>
+      </div>
+    </div>
 
     <!-- Main Content -->
     <main
@@ -330,7 +360,7 @@
       </div>
 
       <!-- DUAL WORKSPACE -->
-      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <section id="coreSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <!-- LEFT 6 COLS: 核心一 -->
         <div
           id="coreOneCard"
@@ -935,6 +965,9 @@
         </div>
       </section>
 
+      <!-- 5.3 手機版分析區頂端（匯出按鈕由 mobile-shell.js 搬入；也是「分析」分頁的捲動錨點） -->
+      <div id="analysisActions" class="hidden"></div>
+
       <!-- OVERALL SCORE + 7 KPIs + PERSONALIZED PHASE TIMING COMPARISON -->
       <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <div
@@ -1371,6 +1404,7 @@
     <script src="js/derive.js"></script>
     <script src="js/analyzer.js"></script><script type="module" src="modules/bridge.js"></script>
     <script src="js/report.js"></script>
+    <script src="js/mobile-shell.js?v=5.3"></script>
     <script>
 
       function onCameraModeChange(val) {

@@ -424,7 +424,10 @@ describe("W 5.1 手機版 UI", () => {
     expect(css.split(START)).toHaveLength(2);
     expect(css.split(END)).toHaveLength(2);
     expect(css.indexOf(START)).toBeLessThan(css.indexOf(END));
-    expect(css.slice(css.indexOf(END) + END.length).trim()).toBe("");
+    // 5.1 區段之後只允許 5.3 區段（見下方 M 組）
+    const tail = css.slice(css.indexOf(END) + END.length).trim();
+    expect(tail.startsWith("/* 5.3 手機版三區殼層：開始 */")).toBe(true);
+    expect(tail.endsWith("/* 5.3 手機版三區殼層：結束 */")).toBe(true);
     for (const s of ["min-height: 44px", "font-size: 16px", "touch-action: pan-y", "touch-action: manipulation"]) {
       expect(block).toContain(s);
     }
@@ -475,7 +478,7 @@ describe("W 5.1 手機版 UI", () => {
       const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0];
       expect(tag).toMatch(/class="hidden /);
     }
-    expect(html).toContain("styles/main.css?v=5.1");
+    expect(html).toContain("styles/main.css?v=5.3");
     expect(html).toMatch(/<canvas\s+id="simCanvas"\s+width="700"\s+height="480"/);
     expect(html).toMatch(/<canvas\s+id="waveCanvas"\s+width="720"\s+height="150"/);
   });
@@ -533,5 +536,73 @@ describe("W 5.1 手機版 UI", () => {
     expect(fn).toContain("sourceVideo.src !== url");
     expect(fn).toContain('getElementById("videoEmptyOverlay").classList.remove("hidden")');
     expect(fn).toContain("URL.revokeObjectURL(url)");
+  });
+});
+
+describe("M 5.3 手機版三區殼層", () => {
+  const START = "/* 5.3 手機版三區殼層：開始 */";
+  const END = "/* 5.3 手機版三區殼層：結束 */";
+  const QUERY_P = "@media screen and (max-width: 639.98px)";
+  const css = read("public/styles/main.css").replace(/\r\n/g, "\n");
+  const html = read("public/index.html");
+  const js = read("public/js/mobile-shell.js");
+  const block = css.slice(css.indexOf(START) + START.length, css.indexOf(END));
+  const noComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("M1 區段位於 5.1 區段之後、檔尾；只有一個 P 查詢，規則全在其內", () => {
+    expect(css.split(START)).toHaveLength(2);
+    expect(css.split(END)).toHaveLength(2);
+    expect(css.indexOf("/* 5.1 手機版 RWD：結束 */")).toBeLessThan(css.indexOf(START));
+    expect(css.slice(css.indexOf(END) + END.length).trim()).toBe("");
+    const rest = noComments(block).trim();
+    expect(rest.startsWith(`${QUERY_P} {`)).toBe(true);
+    expect(rest.endsWith("}")).toBe(true);
+    expect(rest.match(/@media/g)).toHaveLength(1);
+    expect(block).not.toContain("print");
+    expect(block).not.toContain("!important");
+  });
+
+  it("M2 選擇器皆以 # 開頭，引用的 id 在 index.html 恰出現一次", () => {
+    const rest = noComments(block);
+    const body = rest.slice(rest.indexOf("{") + 1, rest.lastIndexOf("}"));
+    const ids = new Set();
+    for (const m of body.matchAll(/([^{}]+)\{/g)) {
+      for (const sel of m[1].split(",").map((x) => x.trim())) {
+        expect(sel.startsWith("#"), sel).toBe(true);
+        for (const i of sel.matchAll(/#([A-Za-z][\w-]*)/g)) ids.add(i[1]);
+      }
+    }
+    for (const id of ids) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+  });
+
+  it("M3 HTML 掛鉤存在且唯一；手機專用元素預設 hidden", () => {
+    const hooks = [
+      "mobileBar", "mobileRow1", "mobileRow2", "mobileTabs", "tabCoreOne", "tabCoreTwo", "tabAnalysis",
+      "strideChip", "stridePopover", "strideResetBtn", "coreSection", "analysisActions", "navTitleRow",
+      "navUploadLabel", "navJsonLabel", "exportJsonBtn", "exportReportBtn",
+      "mSlotHeight", "mSlotStride", "mSlotCadence", "mSlotPace", "mSlotProfile", "mSlotUpload",
+    ];
+    for (const id of hooks) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+    for (const id of ["mobileBar", "stridePopover", "analysisActions"]) {
+      expect(html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0], id).toMatch(/class="hidden/);
+    }
+    expect(html).toContain('src="js/mobile-shell.js');
+  });
+
+  it("M4 mobile-shell.js：matchMedia 與樣式同一斷點、搬移、分頁與彈出面板", () => {
+    for (const s of ["matchMedia", "639.98px", "aria-pressed", "scrollIntoView", "resetStrideToAuto", "createComment", "Escape"]) {
+      expect(js).toContain(s);
+    }
+    for (const id of ["runnerHeightInput", "bannerStrideInput", "topCadenceInput", "topPaceVal", "profileSelect", "exportJsonBtn", "exportReportBtn"]) {
+      expect(js).toContain(`"${id}"`);
+    }
+    expect(js).not.toMatch(/fetch\(|localStorage|sessionStorage|touchstart|touchmove|['"]mousedown['"]/);
+  });
+
+  it("M5 節點搬移不改 ID：report.js 仍以原 ID 讀值", () => {
+    const rep = read("public/js/report.js");
+    expect(rep).toContain('getElementById("topCadenceInput")');
+    expect(rep).toContain('getElementById("bannerStrideInput")');
+    expect(rep).toContain('text("topPaceVal")');
   });
 });
