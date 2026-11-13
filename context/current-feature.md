@@ -1,16 +1,35 @@
-# Current Feature
+# Current Feature: 5.3 手機版三區殼層
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- Logo 區：手機 2 行（icon＋標題＋版本徽章），`#navSubtitle` 與 banner hero 只在非手機版出現。
+- 常駐操作區 `#mobileBar`（sticky、3 行）：身高／步幅／步頻／配速；目前分析影片（`#profileSelect`）＋上傳影片＋載入 JSON；主題切換「核心一｜核心二｜分析」。
+- 主題區：核心一／核心二一次顯示一個；「分析」捲到分析區，分析區可下捲；匯出 JSON／報告放到分析區頂端，主題專屬控制項跟著主題。
+- 步幅「改回 AI 自動」改為點 `#strideChip` 彈出的小面板，操作後自動收起。
+- `public/js/mobile-shell.js` 用 `matchMedia` 搬移既有節點（ID 不變），回到桌面搬回原位；既有 JS 零修改。
+- 桌面（≥ 640px）逐項不變；M 組靜態測試、Playwright S1–S11 通過。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+- Spec：`context/features/5-3-mobile-shell.md`（第 12 節：sticky 範圍採預設整塊 `#mobileBar`，影片區太擠才退到只 sticky 第 3 行）。
+- 分支：`feature-mobile-shell`。
+
+**Baseline（改前）**：`npm run build` 成功；`REQUIRE_BASELINE=1 npm test` 343 通過（walk 103／361ms／96；三份 landmarks 193／176／150）。
+
+**實作差異**：`#analysisAnchor` 併入 `#analysisActions`；header 步幅群組與 banner 於手機整塊隱藏（`data-shell="on"` 由 JS 設定，桌面移除）；上傳／載入 JSON 標籤手機顯示短字「影片」「JSON」；第 1 行輸入框視覺 28px，點整格（約 48px）聚焦輸入。測試新增 describe「M 5.3」M1–M5，調整 W2、W6。
+
+**驗證**：build、lint 通過；`REQUIRE_BASELINE=1 npm test` 348 通過，基準不變；兩個故意改錯均被抓到並已還原。Playwright（390×844／360×740／768×1024／1440×900）：三區順序正確、無橫向溢出、console 0 error；核心一／二切換、分析鍵捲動與高亮、步幅彈出面板（開／改回 AI 自動後收起／Esc）；視窗 1440↔390↔768 縮放節點搬移冪等；woman03 影片擷取 analyze／derive 200；匯入 walk JSON 步頻 103、報告步頻 103 spm。
+
+**Opus review 後修正**：chip 改讀 `isManualStride`（機位「手動鎖定」文案也含「手動」會誤判）；分析高亮改 scroll＋rAF（IntersectionObserver 往下捲會回跳）；`scroll-margin-top` 改依 `#mobileBar` 實際高度（CSS 備援 176px）；chip 觸控區縮到標籤列、不再蓋住步幅輸入；補 `addListener` 退路、chip `aria-label`、身高輸入框邊框一致；popover 由 `role="dialog"` 改 `group`（不做焦點陷阱）。
+
+**未做／差異（如實記錄）**：規格 5.4「核心一工具列手機密度整理」未實作（沿用 5.1 排版，實測可用）；搬移的是 `#profileSelect`（非 `#profileSelectGroup`）；手機隱藏 `#dashBanner` 連帶看不到 km/h（`#topSpeedVal`）與步頻評語徽章；數字輸入框視覺 28px（以點整格聚焦補足，S10 對輸入框為例外）；M 組無 jsdom 行為測試與 class diff 自動防線（以人工 diff 確認無既有 class 變更）。
+
+**已知／未驗**：常駐區高 163px（略高於目標 150）；實機（鍵盤彈出時 sticky、iOS／Android）待使用者驗；列印／PDF 未改。
+
 
 ## History
 
