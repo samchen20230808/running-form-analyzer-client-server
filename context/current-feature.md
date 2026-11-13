@@ -1,16 +1,23 @@
-# Current Feature
+# Current Feature: 5.4 手機版核心一／二一屏顯示
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 手機（≤ 639.98px）切到核心一或核心二時，Logo＋常駐區＋主題卡整個放進一屏，不用捲動頁面；「分析」仍可下捲。
+- 核心一、核心二的設定項（夜間增亮、方向、機位、1:1 即時驅動、圖層、骨架速度、圖例）收進「⚙」底部彈出面板，完成／遮罩／Esc／切換主題皆收起。
+- 常駐區身高／步幅／步頻／配速不做單行摘要。
+- 桌面與平板版面、既有 JS 邏輯、baseline 不變。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+- Spec：`context/features/5-4-mobile-one-screen.md`；分支：`feature-mobile-one-screen`。
+- **Baseline（改前）**：`REQUIRE_BASELINE=1 npm test` 348 通過；量測 390×700：核心一 838px、核心二 843px，可用約 460px。
+- **實作**：`#coreSection` 高度為 `calc(100svh − --chrome-h)`（`mobile-shell.js` 的 `fitCore()` 算 Logo＋常駐區＋16；`data-fit`，保底 `min-height: 420px`）；`#coreSection` 手機 `margin-top: 0`（扣掉 space-y 造成的 20px）；核心一標題列只留上傳／⚙；核心二標題列隱藏；HUD 疊在影片上、骨架 HUD 單行；四相位一排；按鈕文字以 `m-long` 縮短；設定項以節點搬移進 `#coreSettings`（ID 與事件不變，回桌面搬回）。測試新增 N1–N4，調整 W2／M1。
+- **Opus review 後修**：⚙ 開啟時 `aria-expanded="true"`、關閉還焦點、面板 `aria-modal`；快取版號升 `?v=5.4`（W6 同步）；高度改 svh（避免網址列收合造成整頁跳動）；面板 `overscroll-behavior: contain`；上一／下一鈕 `aria-label`；規格驗證條件與實作對齊。已知：N4 為字串檢查、無 jsdom 行為測試；360×600 保底下控制列是否被裁、`:first-child` 選擇器脆弱、`#videoHud` 蓋影片頂端留實機觀察。
+- **驗證**：build、lint 通過；`REQUIRE_BASELINE=1 npm test` 352 通過；Playwright（dev）390×700／390×844／360×740：核心一、核心二卡片底部 ≤ 視窗高、無橫向溢出、卡片內可見控制項 ≥ 44px、console 0 error；360×600 為保底（略捲，預期）；⚙ 面板開關（完成／遮罩／Esc／切 tab）與面板內方向、機位、圖層操作正常；1440／768 節點在原位、無 `data-fit`、⚙ 隱藏；woman03 擷取 analyze／derive 200、匯入 walk JSON 步頻 103。
 
 ## History
 

@@ -72,6 +72,7 @@
 | ------- | ----------- | ------- | ---------------------------------------------------------------------------------------------- |
 | 5.1     | 手機版 UI   | done | 舊頁面 RWD（`main.css` 末端單一區段、id 選擇器）、觸控目標 ≥ 44px、骨架畫布觸控拖曳換格、觸控裝置「拍攝影片」按鈕、畫布依 devicePixelRatio 清晰化；無新依賴、Server 零變更；Playwright 手機視窗驗證，實機待驗清單見 [`5-1`](../../context/features/5-1-mobile-ui.md) 第 9 節 |
 | 5.3     | 手機版三區殼層 | done | 手機分三區：Logo（2 行、說明僅非手機）、常駐操作區（身高／步幅／步頻／配速、目前分析影片、上傳／JSON、主題切換 3 行 sticky）、主題區（核心一／二一次顯示一個、分析可下捲）；以 JS 搬移既有節點（ID 不變）、步幅「改回 AI 自動」彈出面板；規格見 [`5-3`](../../context/features/5-3-mobile-shell.md)；與 5.2 互不依賴 |
+| 5.4     | 手機版核心一／二一屏 | done | 手機主題區高度 = 視窗 − Logo − 常駐區，核心一／二各自一屏不捲動；設定項（夜間增亮、方向、機位、1:1 驅動、圖層、速度、圖例）收進「⚙」彈出面板；`mobile-shell.js` 擴充、`main.css` 5.4 區段；規格見 [`5-4`](../../context/features/5-4-mobile-one-screen.md) |
 | 5.2     | PWA         | planned | 使用者要求：web app manifest、圖示、service worker（離線殼層）、可安裝；須決定快取範圍（`/api/analyze` 不快取、MediaPipe CDN 資源是否預快取）、更新策略與版本號同步（`APP_CONFIG`）；需 HTTPS（Epic 4 部署後）；建議在 5.1 之後 |
 
 前置：Epic 4 完成（PWA 需要 HTTPS 的實際部署網址）；3.9 完成（路徑確定後再設定 manifest `start_url`／service worker scope）。

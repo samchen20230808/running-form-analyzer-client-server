@@ -424,10 +424,10 @@ describe("W 5.1 手機版 UI", () => {
     expect(css.split(START)).toHaveLength(2);
     expect(css.split(END)).toHaveLength(2);
     expect(css.indexOf(START)).toBeLessThan(css.indexOf(END));
-    // 5.1 區段之後只允許 5.3 區段（見下方 M 組）
+    // 5.1 區段之後只允許 5.3、5.4 區段（見 M、N 組）
     const tail = css.slice(css.indexOf(END) + END.length).trim();
     expect(tail.startsWith("/* 5.3 手機版三區殼層：開始 */")).toBe(true);
-    expect(tail.endsWith("/* 5.3 手機版三區殼層：結束 */")).toBe(true);
+    expect(tail.endsWith("/* 5.4 手機版核心一／二一屏：結束 */")).toBe(true);
     for (const s of ["min-height: 44px", "font-size: 16px", "touch-action: pan-y", "touch-action: manipulation"]) {
       expect(block).toContain(s);
     }
@@ -478,7 +478,7 @@ describe("W 5.1 手機版 UI", () => {
       const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0];
       expect(tag).toMatch(/class="hidden /);
     }
-    expect(html).toContain("styles/main.css?v=5.3");
+    expect(html).toContain("styles/main.css?v=5.4");
     expect(html).toMatch(/<canvas\s+id="simCanvas"\s+width="700"\s+height="480"/);
     expect(html).toMatch(/<canvas\s+id="waveCanvas"\s+width="720"\s+height="150"/);
   });
@@ -553,7 +553,10 @@ describe("M 5.3 手機版三區殼層", () => {
     expect(css.split(START)).toHaveLength(2);
     expect(css.split(END)).toHaveLength(2);
     expect(css.indexOf("/* 5.1 手機版 RWD：結束 */")).toBeLessThan(css.indexOf(START));
-    expect(css.slice(css.indexOf(END) + END.length).trim()).toBe("");
+    // 5.3 區段之後只允許 5.4 區段（見 N 組）
+    const tail = css.slice(css.indexOf(END) + END.length).trim();
+    expect(tail.startsWith("/* 5.4 手機版核心一／二一屏：開始 */")).toBe(true);
+    expect(tail.endsWith("/* 5.4 手機版核心一／二一屏：結束 */")).toBe(true);
     const rest = noComments(block).trim();
     expect(rest.startsWith(`${QUERY_P} {`)).toBe(true);
     expect(rest.endsWith("}")).toBe(true);
@@ -604,5 +607,63 @@ describe("M 5.3 手機版三區殼層", () => {
     expect(rep).toContain('getElementById("topCadenceInput")');
     expect(rep).toContain('getElementById("bannerStrideInput")');
     expect(rep).toContain('text("topPaceVal")');
+  });
+});
+
+describe("N 5.4 手機版核心一／二一屏", () => {
+  const START = "/* 5.4 手機版核心一／二一屏：開始 */";
+  const END = "/* 5.4 手機版核心一／二一屏：結束 */";
+  const QUERY_P = "@media screen and (max-width: 639.98px)";
+  const css = read("public/styles/main.css").replace(/\r\n/g, "\n");
+  const html = read("public/index.html");
+  const js = read("public/js/mobile-shell.js");
+  const block = css.slice(css.indexOf(START) + START.length, css.indexOf(END));
+  const rest = block.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+
+  it("N1 區段位於 5.3 區段之後、檔尾；單一 P 查詢；無 !important／print", () => {
+    expect(css.split(START)).toHaveLength(2);
+    expect(css.split(END)).toHaveLength(2);
+    expect(css.indexOf("/* 5.3 手機版三區殼層：結束 */")).toBeLessThan(css.indexOf(START));
+    expect(css.slice(css.indexOf(END) + END.length).trim()).toBe("");
+    expect(rest.startsWith(`${QUERY_P} {`)).toBe(true);
+    expect(rest.endsWith("}")).toBe(true);
+    expect(rest.match(/@media/g)).toHaveLength(1);
+    expect(block).not.toContain("print");
+    expect(block).not.toContain("!important");
+  });
+
+  it("N2 選擇器皆以 # 開頭，引用的 id 在 index.html 恰出現一次", () => {
+    const body = rest.slice(rest.indexOf("{") + 1, rest.lastIndexOf("}"));
+    const ids = new Set();
+    for (const m of body.matchAll(/([^{}]+)\{/g)) {
+      for (const sel of m[1].split(",").map((x) => x.trim())) {
+        expect(sel.startsWith("#"), sel).toBe(true);
+        for (const i of sel.matchAll(/#([A-Za-z][\w-]*)/g)) ids.add(i[1]);
+      }
+    }
+    for (const id of ids) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+  });
+
+  it("N3 HTML 掛鉤；⚙ 按鈕與設定面板預設 hidden", () => {
+    const hooks = [
+      "appMain", "coreOneHead", "coreTwoHead", "coreOneControls", "coreTwoControls", "dirGroup", "cameraGroup",
+      "simSpeedGroup", "videoHint", "dropHintDesc", "coreOneGear", "coreTwoGear", "coreSettings",
+      "coreSettingsBackdrop", "coreSettingsSheet", "coreSettingsOne", "coreSettingsTwo", "coreSettingsClose",
+    ];
+    for (const id of hooks) expect(html.split(`id="${id}"`).length - 1, id).toBe(1);
+    expect(html).toMatch(/id="coreSettingsSheet" role="dialog" aria-modal="true"/);
+    for (const id of ["coreOneGear", "coreTwoGear", "coreSettings"]) {
+      expect(html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0], id).toMatch(/class="hidden/);
+    }
+  });
+
+  it("N4 mobile-shell.js：高度計算、設定面板與節點搬移清單", () => {
+    for (const s of ["fitCore", "--chrome-h", "openSettings", "closeSettings", "aria-expanded", "Escape"]) {
+      expect(js).toContain(s);
+    }
+    for (const id of ["nightBoostBtn", "dirGroup", "cameraGroup", "liveSyncLabel", "toggleGhostBtn", "toggleTrailBtn", "simSpeedGroup", "simLegend"]) {
+      expect(js).toContain(`"${id}"`);
+    }
+    expect(js).not.toMatch(/fetch\(|localStorage|sessionStorage|touchstart|touchmove|['"]mousedown['"]/);
   });
 });
