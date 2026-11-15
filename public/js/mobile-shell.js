@@ -64,7 +64,10 @@
   // JS 只算「被佔用的高度」--chrome-h；CSS 以 100svh 扣掉它（svh 不隨網址列收合而變動，避免整頁跳動）
   function fitCore() {
     if (!active) return;
-    const used = $("appHeader").offsetHeight + $("mobileBar").offsetHeight + 16;
+    const headerH = $("appHeader").offsetHeight;
+    // Logo 與常駐區一起固定：常駐區黏在 Logo 下方
+    $("mobileBar").style.top = `${headerH}px`;
+    const used = headerH + $("mobileBar").offsetHeight + 16;
     const sec = $("coreSection");
     sec.style.setProperty("--chrome-h", `${used}px`);
     sec.setAttribute("data-fit", "1");
@@ -141,9 +144,9 @@
     $("strideChip").setAttribute("aria-expanded", open ? "true" : "false");
   }
 
-  // 「分析」錨點的捲動留白 = 常駐區實際高度（避免被 sticky 蓋住）
+  // 「分析」錨點的捲動留白 = Logo＋常駐區實際高度（避免被 sticky 蓋住）
   function fitAnchorMargin() {
-    $("analysisActions").style.scrollMarginTop = `${$("mobileBar").offsetHeight + 8}px`;
+    $("analysisActions").style.scrollMarginTop = `${$("appHeader").offsetHeight + $("mobileBar").offsetHeight + 8}px`;
   }
 
   // 依捲動位置高亮：分析區頂端進入常駐區下方 → 「分析」，否則為目前核心
@@ -203,6 +206,7 @@
     sec.style.removeProperty("--chrome-h");
     sec.removeAttribute("data-fit");
     $("analysisActions").style.scrollMarginTop = "";
+    $("mobileBar").style.top = "";
     if (badgeObserver) {
       badgeObserver.disconnect();
       badgeObserver = null;
