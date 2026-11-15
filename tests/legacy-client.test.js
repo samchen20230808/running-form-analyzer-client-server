@@ -478,7 +478,7 @@ describe("W 5.1 手機版 UI", () => {
       const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0];
       expect(tag).toMatch(/class="hidden /);
     }
-    expect(html).toContain("styles/main.css?v=5.4.1");
+    expect(html).toContain("styles/main.css?v=5.4.2");
     expect(html).toMatch(/<canvas\s+id="simCanvas"\s+width="700"\s+height="480"/);
     expect(html).toMatch(/<canvas\s+id="waveCanvas"\s+width="720"\s+height="150"/);
   });
@@ -673,5 +673,13 @@ describe("N 5.4 手機版核心一／二一屏", () => {
     expect(block).toMatch(/#phaseBtnGrid[^{]*\{[^}]*white-space: nowrap/);
     const hint = html.match(/<p\s+id="dropHintTouch"[^>]*>([\s\S]*?)<\/p>/)[1];
     expect(hint).not.toContain("下方");
+  });
+
+  it("N6 Logo 固定、相位標題單行、mobile-shell 設定 top 與含 header 的捲動留白", () => {
+    expect(block).toMatch(/#appHeader\s*\{[^}]*position: sticky/);
+    expect(block).toMatch(/#simPhaseTitle\s*\{[^}]*white-space: nowrap/);
+    expect(block).toMatch(/#simPhaseTitle\s*\{[^}]*text-overflow: ellipsis/);
+    expect(js).toMatch(/\$\("mobileBar"\)\.style\.top/);
+    expect(js).toMatch(/scrollMarginTop = `[^`]*appHeader/);
   });
 });

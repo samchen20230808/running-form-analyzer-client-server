@@ -247,6 +247,7 @@
 /* 5.4 手機版核心一／二一屏：開始 */
 @media screen and (max-width: 639.98px) {
   #appMain { padding-top: 8px; padding-bottom: 8px; }
+  #appHeader { position: sticky; top: 0; z-index: 41; background: #0b0f19; box-shadow: 0 1px 0 #0b0f19; }
   #coreSection[data-fit] { margin-top: 0; height: calc(100vh - var(--chrome-h)); height: calc(100svh - var(--chrome-h)); min-height: 420px; grid-template-rows: minmax(0, 1fr); }
   #coreSection[data-fit] #coreOneCard,
   #coreSection[data-fit] #coreTwoCard { height: 100%; min-height: 0; }
@@ -284,10 +285,10 @@
   #coreTwoHead { display: none; }
   #simStage { flex: 1 1 0; min-height: 0; }
   #simCanvas { flex: 1 1 0; width: 100%; height: 100%; min-height: 0; }
-  #simHud { order: 2; display: flex; justify-content: center; align-items: baseline; gap: 8px; padding: 2px 8px; max-width: none; }
+  #simHud { order: 2; display: flex; flex-wrap: nowrap; min-width: 0; justify-content: center; align-items: baseline; gap: 8px; padding: 2px 8px; max-width: none; }
   #simStateLabel { display: none; }
-  #simPhaseTitle { font-size: 11px; }
-  #simPctText { font-size: 12px; }
+  #simPhaseTitle { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
+  #simPctText { font-size: 12px; flex: 0 0 auto; }
   #cycleSlider { order: 5; }
   #phaseBtnGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   #phaseBtnGrid button { padding: 4px 6px; }
