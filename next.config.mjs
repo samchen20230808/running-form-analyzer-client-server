@@ -19,6 +19,15 @@ const nextConfig = {
           { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'" },
         ],
       },
+      // 5.2 PWA：sw.js 每次更新檢查都回源；不加 CSP（會擋掉 SW 對 CDN 的 fetch）。
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
     ];
   },
 };

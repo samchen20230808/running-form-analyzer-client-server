@@ -80,11 +80,13 @@
 - `fonts.googleapis.com`、`fonts.gstatic.com`（Inter、JetBrains Mono、Noto Sans TC）
 - `cdn.jsdelivr.net`（`@mediapipe/{camera_utils,control_utils,drawing_utils,pose}` 的 script，以及選影片後由 `locateFile` 抓取的 wasm、`.data`、`.binarypb` 與 heavy 模型）
 
-對方可見使用者的 IP、User-Agent 與本站 origin（頁面未設 `Referrer-Policy`，瀏覽器預設 `strict-origin-when-cross-origin`）。**影片與 landmarks 不會送往這些第三方**：MediaPipe 在本機執行，CDN 只提供程式與模型檔。這些資源**未釘版本**，上游變動會直接改變行為。自託管或釘版另開 Feature 處理，4.1 部署時仍未釘版（是否在那之前公開部署由使用者決定）。
+對方可見使用者的 IP、User-Agent 與本站 origin（頁面未設 `Referrer-Policy`，瀏覽器預設 `strict-origin-when-cross-origin`）。**影片與 landmarks 不會送往這些第三方**：MediaPipe 在本機執行，CDN 只提供程式與模型檔。這些資源**未釘版本**，上游變動會直接改變行為。5.2 起 service worker 會在使用時於背景向同一批 CDN 重新驗證快取（stale-while-revalidate），不新增任何第三方。自託管或釘版另開 Feature 處理，4.1 部署時仍未釘版（是否在那之前公開部署由使用者決定）。
 
 ## 9. Cookie 與瀏覽器儲存
 
 舊 Client 不使用 cookie、localStorage、sessionStorage、IndexedDB，也沒有追蹤或分析工具（`tests/legacy-client.test.js` 檢查 `public/` 不含這些字樣；只檢查本站檔案，第三方 CDN script 的行為不在此保證）。影片以 `blob:` URL 在記憶體播放（`URL.createObjectURL`）、JSON 匯入用 `FileReader` 在本機讀取、匯出為本機下載，皆不離開瀏覽器。3.8 起的「匯出報告」只在本機組出報告頁並用瀏覽器列印／另存 PDF，**不發任何網路請求**；報告標題預設為影片檔名（可在報告內改成暱稱），檔名只出現在本機畫面與 PDF 中，不上傳。
+
+5.2 起使用瀏覽器的 Cache Storage（由 service worker 管理）：只存本站靜態殼層（HTML、CSS、JS、圖示）與第三方 CDN 檔（Tailwind、字型、MediaPipe 程式與模型）。**不存影片、landmarks、匯入的 JSON，`/api` 回應不快取**（service worker 對 `/api/*` 與所有非 GET 請求不呼叫 `respondWith`）。清除方式：瀏覽器的網站資料設定；本機開發可用 `?sw=0` 解除註冊並刪除 `rfa-` 開頭的快取。
 
 ## 10. 日後可能改變的情況
 

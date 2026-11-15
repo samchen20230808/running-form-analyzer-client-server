@@ -8,6 +8,11 @@
     </title>
     <!-- App Icon 與 Favicon 設定 -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- 5.2 PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0B0F19" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="跑姿分析" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
@@ -1429,6 +1434,33 @@
     <script src="js/analyzer.js"></script><script type="module" src="modules/bridge.js"></script>
     <script src="js/report.js"></script>
     <script src="js/mobile-shell.js?v=5.4.2"></script>
+    <!-- 5.2 PWA：新版本提示（hidden 預設；由 js/pwa.js 控制） -->
+    <div
+      id="swUpdateToast"
+      class="hidden fixed bottom-4 left-4 right-4 mx-auto max-w-md z-[70] print:hidden rounded-xl border border-slate-600 bg-slate-800 text-slate-100 shadow-2xl p-4"
+      role="status"
+    >
+      <p class="text-base leading-snug">
+        有新版本可用。重新整理會清除目前畫面上的分析結果，需要的話請先匯出 JSON。
+      </p>
+      <div class="mt-3 flex gap-3 justify-end">
+        <button
+          id="swUpdateLater"
+          type="button"
+          class="min-h-[44px] px-4 text-base rounded-lg border border-slate-500 hover:bg-slate-700"
+        >
+          稍後
+        </button>
+        <button
+          id="swUpdateNow"
+          type="button"
+          class="min-h-[44px] px-4 text-base rounded-lg bg-sky-500 text-slate-900 font-semibold hover:bg-sky-400"
+        >
+          重新整理
+        </button>
+      </div>
+    </div>
+    <script src="js/pwa.js?v=5.2"></script>
     <script>
 
       function onCameraModeChange(val) {
