@@ -108,3 +108,12 @@ Dashboard → Domains 新增。同源檢查依 `Host`，不需改程式；加網
 | 429 | 等 `Retry-After` 秒數後重試 |
 | 504 | 超過 `maxDuration` |
 | build 失敗 | 先本地 `npm run build`；確認 Node 版本 24.x |
+
+## 12. PWA（5.2）
+
+- **service worker**：`public/sw.js`（`Cache-Control: no-cache`）。殼層 cache-first，快取名稱 `rfa-shell-<版號>-<雜湊>`；CDN（MediaPipe、Tailwind、字型）執行期 stale-while-revalidate，名稱 `rfa-cdn-<版號>`；`/api/*` 與非 GET 一律不攔截。
+- **改了殼層檔必做**：修改 `public/index.html`、`public/js/*`、`public/styles/*`、`public/modules/*` 或 `app/icon.svg` 後執行 `npm run sync:sw`，否則 `tests/pwa.test.js` Q3 失敗；略過測試直接部署會讓使用者收不到新殼層。新增或移除殼層檔案時另需手動更新 `sw.js` 的 `PRECACHE`（`sync:sw` 會列出差異）。
+- **更新行為**：偵測到新版時顯示「有新版本可用」提示，使用者按「重新整理」才切換；「稍後」維持舊版。
+- **圖示**：`public/icons/*.png` 由 `app/icon.svg` 與 `scripts/pwa-icons/icon-maskable.svg` 以 headless Edge 截圖產生（`msedge --headless=new --force-device-scale-factor=1 --default-background-color=00000000 --window-size=N,N --screenshot=<輸出> file:///<只含 img 的暫存 HTML>`）。
+- **部署後檢查**：`curl -I <網址>/sw.js` 應為 200、`Cache-Control: no-cache`；`/manifest.webmanifest` 為 `application/manifest+json`；實機待驗清單見 [規格第 11 節](../context/features/5-2-pwa.md)。
+- **本機開發**：預設不註冊；網址加 `?sw=1` 註冊、`?sw=0` 解除並清除 `rfa-` 快取。

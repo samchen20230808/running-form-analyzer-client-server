@@ -101,7 +101,8 @@ describe("舊 Client 的一致性", () => {
 
   it("U2 fetch 恰好兩處：analyzer.js 的 /api/analyze、derive.js 的 /api/derive（相對路徑）", () => {
     const hits = [];
-    for (const p of [...listFiles("public/", ".js"), "public/index.html"]) {
+    // 5.2：public/sw.js 的 fetch 只轉發瀏覽器傳入的 request（不自組網址），由 tests/pwa.test.js 把關
+    for (const p of [...listFiles("public/", ".js"), "public/index.html"].filter((f) => f !== "public/sw.js")) {
       const lines = read(p).split(/\r?\n/);
       lines.forEach((l, i) => {
         if (/\bfetch\s*\(/.test(l)) hits.push({ p, text: `${l} ${lines[i + 1] ?? ""}` });

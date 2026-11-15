@@ -75,7 +75,7 @@
 | 5.4     | 手機版核心一／二一屏 | done | 手機主題區高度 = 視窗 − Logo − 常駐區，核心一／二各自一屏不捲動；設定項（夜間增亮、方向、機位、1:1 驅動、圖層、速度、圖例）收進「⚙」彈出面板；`mobile-shell.js` 擴充、`main.css` 5.4 區段；規格見 [`5-4`](../../context/features/5-4-mobile-one-screen.md) |
 | 5.4.1   | 手機觸控空狀態與相位按鈕修正 | done | 手機空狀態隱藏 HUD 與重複的上傳按鈕（保留預覽鈕）、相位標籤不換行；僅 `main.css` 5.4 區段、提示文案與快取版號 `?v=5.4.1`；規格見 [`5-4-1`](../../context/features/5-4-1-mobile-empty-state-fix.md) |
 | 5.4.2   | 手機版 Logo 固定與相位標題單行 | done | Logo 與常駐區一起固定在頂端（三個分頁一致）；核心二相位標題固定單行、地板不再上下跳；`main.css` 5.4 區段、`mobile-shell.js`、快取版號 `?v=5.4.2`；規格見 [`5-4-2`](../../context/features/5-4-2-mobile-sticky-logo-sim-hud.md) |
-| 5.2     | PWA         | planned | 使用者要求：web app manifest、圖示、service worker（離線殼層）、可安裝；須決定快取範圍（`/api/analyze` 不快取、MediaPipe CDN 資源是否預快取）、更新策略與版本號同步（`APP_CONFIG`）；需 HTTPS（Epic 4 部署後）；建議在 5.1 之後 |
+| 5.2     | PWA         | planned | manifest、圖示（192／512／maskable）、service worker 離線殼層（cache-first，快取名稱含版號＋殼層雜湊）、MediaPipe／Tailwind／字型 CDN 執行期 stale-while-revalidate、`/api/*` 不攔截不快取、提示後更新、`npm run sync:sw`；規格見 [`5-2`](../../context/features/5-2-pwa.md)；實機待驗清單見規格第 11 節（需 HTTPS 部署） |
 
 前置：Epic 4 完成（PWA 需要 HTTPS 的實際部署網址）；3.9 完成（路徑確定後再設定 manifest `start_url`／service worker scope）。
 

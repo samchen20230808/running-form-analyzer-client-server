@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- maskable 來源：滿版底色（無圓角），圖案縮至 0.8 倍置中，落在安全區（半徑 0.4）內 -->
+  <rect width="128" height="128" fill="#131B2E" />
+  <g transform="translate(12.8 12.8) scale(0.8)">
+    <circle cx="70" cy="30" r="11" fill="#38BDF8" />
+    <path d="M 42 62 L 54 46 L 78 52 L 94 42" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 28 84 L 46 96 L 66 76 L 68 50 M 66 76 L 86 88 L 90 108" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>
