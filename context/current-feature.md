@@ -1,20 +1,33 @@
-# Current Feature
+# Current Feature: 5.4.1 手機空狀態與相位按鈕修正
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Goals appear here after /feature load -->
+- 手機觸控裝置核心一空狀態：隱藏 `#videoHud`、隱藏重複的上傳／拍攝 label，只留「⚡ 預覽徐國峰標準動作訊號」，`#videoEmptyOverlay` 上內距 56px 改 12px，提示文案改「點按鈕選擇或拍攝跑步影片」。
+- 核心二四顆相位按鈕標籤不換行（11px、nowrap、ellipsis），四顆高度一致。
+- `main.css?v=5.4` 改 `?v=5.4.1`；W6 版號斷言同步；新增 N5 測試。
+- 只改 5.4 CSS 區段內部；JS、`lib/**`、`app/**`、桌面／平板版面、baseline 不變。
 
 ## Notes
 
-<!-- Notes appear here after /feature load -->
+規格：`context/features/5-4-1-mobile-empty-state-fix.md`；branch `fix-mobile-empty-state`。
+
+**Baseline（動手前）**：`npm run build` 成功；`npm run lint` 無問題；`REQUIRE_BASELINE=1 npm test` 352 通過（15 檔），基準 103／361ms／96。
+
+**驗證結果**：
+- `npm run build` 成功、`npm run lint` 無問題、`REQUIRE_BASELINE=1 npm test` 353 通過、0 失敗（review 時重跑；含新增 N5；基準 103／361ms／96 不變）。
+- Playwright 觸控模擬（`isMobile`、`hasTouch`、DPR 2，`pointer: coarse` 皆為 true）412×737、390×700、375×667、360×740：空狀態 `#videoHud` 不可見、label 可見數 0、提示與預覽按鈕在 `#videoDropZone` 內且上下不重疊（提示在按鈕上方）、`#coreOneCard` 底部 ≤ 視窗高；載入 woman03 後 HUD 可見、空狀態疊層隱藏；核心二四顆按鈕高度皆 44px、標籤 span 單行（16–17px）無截斷；無橫向溢出、console 0 error。
+- 桌面 1440、平板 768（含觸控）：HUD 顯示、空狀態上傳 label 與預覽按鈕照舊（零變更）。
+- 互動（390×700）：預覽徐國峰動作可播放（疊層隱藏）；匯入 walk JSON 步頻 103、derive 200；模擬擷取 analyze 200；無資源 404。
+- 截圖：scratchpad `541/`。
+- 未做：沒有實際點標題列「上傳影片」選檔（影片直接設到 `#videoUploadInput`）；只拍深色主題；實機（iOS Safari、Samsung Internet）待使用者驗。
+
+**Review（Opus）**：Ready to complete。目標全部達成；diff 只動 5.4 CSS 區段（3 條新規則＋1 條內距）、`#dropHintTouch` 文案、版號與測試；無 JS、`lib/`、`app/` 變更，無 scope creep。選擇器特異度正確（`#videoEmptyOverlay label` 1,0,1 勝過 5.1 的 `#videoCaptureLabel`），768 觸控截圖確認平板仍顯示三顆按鈕。小備註：路線圖 5.4.1 已先標 `done`（依流程應在 complete 時改，不影響）；核心二 360 寬時相位標題列（如「3. 落下 (…藍段)」）仍會換兩行，屬既有行為，留給 5.5。
 
 ## History
-
-
 
 <!-- STAY vs MOVE rule:
      - TODAY's entries → stay here in current-feature.md

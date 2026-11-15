@@ -478,7 +478,7 @@ describe("W 5.1 手機版 UI", () => {
       const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`))[0];
       expect(tag).toMatch(/class="hidden /);
     }
-    expect(html).toContain("styles/main.css?v=5.4");
+    expect(html).toContain("styles/main.css?v=5.4.1");
     expect(html).toMatch(/<canvas\s+id="simCanvas"\s+width="700"\s+height="480"/);
     expect(html).toMatch(/<canvas\s+id="waveCanvas"\s+width="720"\s+height="150"/);
   });
@@ -665,5 +665,13 @@ describe("N 5.4 手機版核心一／二一屏", () => {
       expect(js).toContain(`"${id}"`);
     }
     expect(js).not.toMatch(/fetch\(|localStorage|sessionStorage|touchstart|touchmove|['"]mousedown['"]/);
+  });
+
+  it("N5 空狀態隱藏 HUD 與上傳 label、相位標籤不換行、提示文案中性", () => {
+    expect(block).toMatch(/#videoEmptyOverlay:not\(\.hidden\) ~ #videoHud\s*\{[^}]*display: none/);
+    expect(block).toMatch(/#videoEmptyOverlay label\s*\{[^}]*display: none/);
+    expect(block).toMatch(/#phaseBtnGrid[^{]*\{[^}]*white-space: nowrap/);
+    const hint = html.match(/<p\s+id="dropHintTouch"[^>]*>([\s\S]*?)<\/p>/)[1];
+    expect(hint).not.toContain("下方");
   });
 });
